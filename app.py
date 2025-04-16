@@ -1,5 +1,6 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for,flash
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key="hello"
@@ -19,7 +20,7 @@ class Users(db.Model):
          self.username=username
          self.password=password
 
-@app.route("/")
+@app.route("/home")
 def home():
    user=session.get("username")
 
@@ -90,6 +91,20 @@ def erase(email):
     db.session.commit()
     flash("User deleted successfully.")
     return redirect(url_for("signup"))
+
+
+
+class Todo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(200), nullable=False)
+    date_created = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return '<Task %r>' % self.id
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
