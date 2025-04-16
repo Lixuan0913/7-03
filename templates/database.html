@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Database</title>
+   </head>
+   <body>
+      <h3>Profiles</h3>
+      <br>
+      <table>
+         <thead>
+            <tr>
+               <th>Email</th>
+               <th>Username</th>
+               <th>Password</th>
+               <th>Action</th>
+            </tr>
+         </thead>
+         <tbody>
+            {% for data in values %}
+            <tr>
+               <td>{{ data.email }}</td>
+               <td>{{ data.username }}</td>
+               <td>{{ data.password }}</td>
+               <td><a href="/delete/{{ data.email }}">Delete</a></td>
+            </tr>
+            {% endfor %}
+         </tbody>
+      </table>
+   </body>
+</html>
