@@ -85,8 +85,6 @@ def login():
 
 @app.route('/delete/<email>')
 def erase(email):
-    # Deletes the data on the basis of unique id and 
-    # redirects to home page
     data = Users.query.get(email)
     db.session.delete(data)
     db.session.commit()
