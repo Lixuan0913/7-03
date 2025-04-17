@@ -1,6 +1,5 @@
-from flask import Flask,render_template,request,session,flash,redirect,url_for,flash
+from flask import Flask,render_template,request,session,flash,redirect,url_for,flash, Blueprint
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key="hello"
@@ -11,15 +10,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
 class Users(db.Model):
-      email = db.Column("email",db.String(100), primary_key = True)
-      username = db.Column(db.String(100))
-      password = db.Column(db.String(12))
+    username = db.Column(db.String(100), primary_key = True)
+    email = db.Column("email",db.String(100))
+    password = db.Column(db.String(12))
+    display_name = db.Column(db.String(100))
 
-      def __init__(self,email,username,password):
-         self.email=email
-         self.username=username
-         self.password=password
+    def __init__(self,email,username,password,display_name):
+        self.email=email
+        self.username=username
+        self.password=password
+        self.display_name=display_name
 
+class Post(db.Model):
+    username = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    author = db.Column(db.String(100), db.ForeignKey('users.username'))
+
+@app.route("/")
 @app.route("/home")
 def home():
    user=session.get("username")
@@ -53,7 +60,6 @@ def signup():
             flash("Email already exists. Please use a different one.", "Error")
             return redirect(url_for("signup"))
       
-          
          user = Users(email,username,password)
          db.session.add(user)
          db.session.commit()
@@ -61,7 +67,6 @@ def signup():
       else:
          flash("Please fill out all field")
            
-
       flash("Signup successful!")
       return redirect(url_for("login"))
     
@@ -83,7 +88,6 @@ def login():
          flash("Please check your email and password")
    return render_template("Login.html")
 
-
 @app.route('/delete/<email>')
 def erase(email):
     data = Users.query.get(email)
@@ -92,19 +96,17 @@ def erase(email):
     flash("User deleted successfully.")
     return redirect(url_for("signup"))
 
+@app.route("/create-post", methods=['GET', 'POST'])
+def create_post():
+    if request.method == "POST":
+        text = request.form.get('text')
 
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            flash('Post created!', category='success')
 
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(200), nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return '<Task %r>' % self.id
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+    return render_template("create_post.html")
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
