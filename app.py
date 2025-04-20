@@ -112,6 +112,11 @@ def login():
          flash("Please check your username and password","Error")
    return render_template("Login.html")
 
+@app.route("/logout")
+def logout():
+   session.pop("user",None)
+   return redirect(url_for("login"))
+
 @app.route('/delete/<email>')
 def erase(email):
     data = Users.query.filter_by(email=email).first()
@@ -122,11 +127,11 @@ def erase(email):
 
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
-   if "username" not in session:
+   if "user" not in session:
       flash("Please login to create a post", category="error")
       return render_template("Login.html")
 
-   username=session.get("username")
+   username=session.get("user")
    user = Users.query.filter_by(username=username).first()
 
    if not user:
@@ -138,7 +143,7 @@ def create_post():
         if not text:
             flash("Post cannot be empty", category='error')
         else:
-            post = Post(text=text, author=session.get("username"))
+            post = Post(text=text, author=username)
             db.session.add(post)
             db.session.commit()
             flash('Post created!', category='success')
@@ -151,7 +156,7 @@ def delete_post(id):
 
    if not post:
       flash("Post doesn't exist", category="error")
-   elif session.get("username") != post.author:
+   elif session.get("user") != post.author:
       flash("You don't have permission to delete this post.", category="error")
    else:
       db.session.delete(post)
