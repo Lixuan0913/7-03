@@ -122,7 +122,17 @@ def erase(email):
 
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
-    if request.method == "POST":
+   if "username" not in session:
+      flash("Please login to create a post", category="error")
+      return render_template("Login.html")
+
+   username=session.get("username")
+   user = Users.query.filter_by(username=username).first()
+
+   if not user:
+      flash("User not found", category="error")
+
+   if request.method == "POST":
         text = request.form.get('text')
 
         if not text:
@@ -133,7 +143,7 @@ def create_post():
             db.session.commit()
             flash('Post created!', category='success')
             return redirect(url_for('home'))
-    return render_template("create_post.html")
+   return render_template("create_post.html")
 
 @app.route("/delete-post/<id>", methods=['GET','POST'])
 def delete_post(id):
