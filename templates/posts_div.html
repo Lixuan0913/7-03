@@ -2,7 +2,7 @@
 {% block title %}
 {% endblock %}
 {% block content %}
-<h1 align="center">{% block header %}Posts{% endblock %}</h1>
+<h1 align="center">{% block header %}Reviews{% endblock %}</h1>
 <div id="posts">
     {% for post in posts %}
         <div class="card border-dark">
@@ -10,11 +10,9 @@
                 <a href="/posts/{{post.users.username}}">{{post.users.username}}</a>
                 {% if user==post.author %}
                 <div class="btn-group">
-                    <form action="{{ url_for('delete_post', id=post.id) }}" method="POST">
-                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
-                    </form>
+                    <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
                     <ul class="dropdown-menu">
-                        <li><a href="/delete-post/{{post.id}}" class="dropdown-item"></a>Delete</li>
+                        <li><a href="/delete-post/{{post.id}}" class="dropdown-item">Delete</a></li>
                     </ul>
                 </div>
                 {% endif %}
@@ -25,12 +23,12 @@
                 </div>
             </div>
         </div>
-</div>
+        <br />
     {% endfor %}
+</div>
 {% block footer %}
 <div align="center">
     <a href="/create-post"><button type="button" class="btn btn-primary btn-lg">Create a post</button></a>
 </div>
 {% endblock %}
-
 {% endblock %}

@@ -112,7 +112,7 @@ def create_post():
             return redirect(url_for('home'))
     return render_template("create_post.html")
 
-@app.route("/delete-post/<id>", methods=['POST'])
+@app.route("/delete-post/<id>", methods=['GET','POST'])
 def delete_post(id):
    post = Post.query.filter_by(id=id).first()
 
@@ -134,7 +134,7 @@ def posts(username):
       flash("No user with that username exists", category="error")
       return redirect(url_for("home"))
 
-   posts = Post.query.filter_by(author=user.id).all()
+   posts = Post.query.filter_by(author=user.username).all()
    user=session.get("username")
 
    return render_template("posts.html", user=user, posts=posts, username=username)
