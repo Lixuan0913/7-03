@@ -11,6 +11,7 @@
             <tr>
                <th>Email</th>
                <th>Username</th>
+               <th>display_name</th>
                <th>Password</th>
                <th>Action</th>
             </tr>
@@ -20,7 +21,8 @@
             <tr>
                <td>{{ data.email }}</td>
                <td>{{ data.username }}</td>
-               <td>{{ data.password }}</td>
+               <td>{{ data.display_name }}</td>
+               <td>{{data.Password}}</td>
                <td><a href="/delete/{{ data.email }}">Delete</a></td>
             </tr>
             {% endfor %}

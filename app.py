@@ -1,7 +1,9 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for,flash, Blueprint
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
-app = Flask(__name__)
+app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 
 # Configure SQLite database
@@ -9,9 +11,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
+
 class Users(db.Model):
     username = db.Column(db.String(100), primary_key = True)
-    email = db.Column("email",db.String(100))
+    email = db.Column("email",db.String(100),unique=True)
     password = db.Column(db.String(12))
     display_name = db.Column(db.String(100))
 
@@ -21,15 +24,16 @@ class Users(db.Model):
         self.password=password
         self.display_name=display_name
 
+
+
 class Post(db.Model):
     username = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username'))
 
-@app.route("/")
 @app.route("/home")
 def home():
-   user=session.get("username")
+   user=session.get("user")
 
    if user:
       return f"hello {user}"
@@ -41,34 +45,53 @@ def home():
 def database():
    return render_template("database.html",values=Users.query.all())
 
+
 @app.route("/signup",methods=["GET","POST"])
 def signup():
     if request.method == "POST":
       email=request.form["email"]
       username=request.form["username"]
-      password=request.form["password"]
+      display_name=request.form["nickname"]
+      actual_password=request.form["password"]
       confirm_password=request.form["confirm-password"]
-      existing_user = Users.query.filter_by(email=email).first()
+      
 
       
-      if email != " " or username != " " or password != " ":
-         if password != confirm_password:
+      if not email  or not username  or not actual_password  or not display_name:
+           flash("Please fill out all field")
+           return redirect(url_for("signup"))
+      
+      pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my)$'
+
+      if not re.match(pattern,email):
+          flash("Please use mmu email")
+          return redirect(url_for("signup"))
+         
+      if actual_password != confirm_password:
           flash("Passwords does not match","Error")
           return redirect(url_for("signup"))
+         
+      existing_user = Users.query.filter_by(username=username).first()
+      if existing_user:
+         flash("User already exist", "Error")
+         return redirect(url_for("signup"))
       
-         if existing_user:
-            flash("Email already exists. Please use a different one.", "Error")
-            return redirect(url_for("signup"))
-      
-         user = Users(email,username,password)
-         db.session.add(user)
-         db.session.commit()
+      try:
+        user = Users(
+            email=email,
+            username=username,
+            password=generate_password_hash(actual_password,method="pbkdf2:sha256"),
+            display_name=display_name
+            )
+        db.session.add(user)
+        db.session.commit()
+        flash("Signup successful!", "Success")
+        return redirect(url_for("login"))
+      except Exception as e:
+         db.session.rollback()
+         flash("Error while saving to database: " + str(e), "Error")
+         return redirect(url_for("signup"))
 
-      else:
-         flash("Please fill out all field")
-           
-      flash("Signup successful!")
-      return redirect(url_for("login"))
     
     return render_template("Signup.html")
 
@@ -76,21 +99,23 @@ def signup():
 def login():
    
    if request.method == "POST":
-      email=request.form["email"]
+      username=request.form["username"]
       password=request.form["password"]
 
-      found_user = Users.query.filter_by(email=email).first()
+      found_user = Users.query.filter_by(username=username).first()
+
       
-      if found_user and password == found_user.password:
-         session["username"]=found_user.username
-         return redirect(url_for("home"))
-      else:
-         flash("Please check your email and password")
+      if found_user :
+         if check_password_hash(found_user.password,password):
+            session["user"]=found_user.username
+            return redirect(url_for("home"))
+         else:
+            flash("Please check your username and password")
    return render_template("Login.html")
 
 @app.route('/delete/<email>')
 def erase(email):
-    data = Users.query.get(email)
+    data = Users.query.filter_by(email=email).first()
     db.session.delete(data)
     db.session.commit()
     flash("User deleted successfully.")
