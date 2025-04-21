@@ -31,6 +31,7 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
 
+@app.route("/")
 @app.route("/home")
 def home():
 
@@ -163,6 +164,32 @@ def delete_post(id):
       db.session.commit()
       flash("Post deleted", category="success")
    return redirect(url_for('home'))
+
+@app.route("/edit-post/<id>", methods=['GET', 'POST'])
+def edit_post(id):
+    post = Post.query.filter_by(id=id).first()
+
+    if not post:
+        flash("Post doesn't exist", category="error")
+        return redirect(url_for('home'))
+    
+    if session.get("user") != post.author:
+        flash("You don't have permission to edit this post.", category="error")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        text = request.form.get('text')
+        
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            post.text = text  # Update the post content
+            db.session.commit()
+            flash("Post updated successfully", category='success')
+            return redirect(url_for('home'))
+    
+    # For GET request, show the edit form with current post content
+    return render_template('edit_post.html', post=post)
 
 @app.route("/posts/<username>")
 def posts(username):
