@@ -104,11 +104,15 @@ def login():
       found_user = Users.query.filter_by(username=username).first()
 
       
-      if found_user and check_password_hash(found_user.password,password):
+      if found_user:
+         if check_password_hash(found_user.password,password):
             session["user"]=found_user.username
             return redirect(url_for("home"))
+         else:
+            flash("Incorrect password","Error")
       else:
-         flash("Please check your username and password","Error")
+         flash("Users does not exist","Error")
+         return redirect(url_for("login"))
    return render_template("Login.html")
 
 @app.route("/logout")
