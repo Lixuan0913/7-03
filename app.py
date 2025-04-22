@@ -1,7 +1,6 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for,flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-from werkzeug.security import generate_password_hash,check_password_hash
 
 app = Flask(__name__)
 app.secret_key="hello"
@@ -72,20 +71,16 @@ def signup():
 def login():
    
    if request.method == "POST":
-      username=request.form["username"]
+      email=request.form["email"]
       password=request.form["password"]
 
-      found_user = Users.query.filter_by(username=username).first()
+      found_user = Users.query.filter_by(email=email).first()
       
-      if found_user:
-         if check_password_hash(found_user.password,password):
-            session["username"]=found_user.username
-            return redirect(url_for("home"))
-         else:
-            flash("Incorrect password","Error")
+      if found_user and password == found_user.password:
+         session["username"]=found_user.username
+         return redirect(url_for("home"))
       else:
-         flash("User does not exist","Error")
-         return redirect(url_for("login"))
+         flash("Please check your email and password")
    return render_template("Login.html")
 
 
