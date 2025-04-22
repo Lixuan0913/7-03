@@ -1,8 +1,9 @@
-from flask import Flask,render_template,request,session,flash,redirect,url_for,flash
+from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
-app = Flask(__name__)
+app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 
 # Configure SQLite database
@@ -10,60 +11,86 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
+
 class Users(db.Model):
-      email = db.Column("email",db.String(100), primary_key = True)
-      username = db.Column(db.String(100))
-      password = db.Column(db.String(12))
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(100), nullable=False,unique=True)
+    email = db.Column("email",db.String(100), nullable=False)
+    password = db.Column(db.String(12), nullable=False)
+    post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
 
-      def __init__(self,email,username,password):
-         self.email=email
-         self.username=username
-         self.password=password
+    def __init__(self,email,username,password):
+        self.email=email
+        self.username=username
+        self.password=password
 
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
+
+@app.route("/")
 @app.route("/home")
 def home():
-   user=session.get("username")
 
-   if user:
-      return f"hello {user}"
-   
+   if "user" in session:
+      posts = Post.query.all()
+      user=session.get("username")
+      return render_template("home.html", user=user, posts=posts)
+      
    else:
-      return "Not user log in"
+      return render_template("home.html")
 
 @app.route("/database")
 def database():
    return render_template("database.html",values=Users.query.all())
+
 
 @app.route("/signup",methods=["GET","POST"])
 def signup():
     if request.method == "POST":
       email=request.form["email"]
       username=request.form["username"]
-      password=request.form["password"]
+      actual_password=request.form["password"]
       confirm_password=request.form["confirm-password"]
-      existing_user = Users.query.filter_by(email=email).first()
+      
 
       
-      if email != " " or username != " " or password != " ":
-         if password != confirm_password:
+      if not email  or not username  or not actual_password:
+           flash("Please fill out all field")
+           return redirect(url_for("signup"))
+      
+      pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my)$'
+
+      if not re.match(pattern,email):
+          flash("Please use mmu email")
+          return redirect(url_for("signup"))
+         
+      if actual_password != confirm_password:
           flash("Passwords does not match","Error")
           return redirect(url_for("signup"))
+         
+      existing_user = Users.query.filter_by(username=username).first()
+      if existing_user:
+         flash("User already exist", "Error")
+         return redirect(url_for("signup"))
       
-         if existing_user:
-            flash("Email already exists. Please use a different one.", "Error")
-            return redirect(url_for("signup"))
+      try:
+        user = Users(
+            email=email,
+            username=username,
+            password=generate_password_hash(actual_password,method="pbkdf2:sha256")
+            )
+        db.session.add(user)
+        db.session.commit()
+        flash("Signup successful!", "Success")
+        return redirect(url_for("login"))
       
-          
-         user = Users(email,username,password)
-         db.session.add(user)
-         db.session.commit()
+      except Exception as e:
+         db.session.rollback()
+         flash("Error while saving to database: " + str(e), "Error")
+         return redirect(url_for("signup"))
 
-      else:
-         flash("Please fill out all field")
-           
-
-      flash("Signup successful!")
-      return redirect(url_for("login"))
     
     return render_template("Signup.html")
 
@@ -71,40 +98,113 @@ def signup():
 def login():
    
    if request.method == "POST":
-      email=request.form["email"]
+      username=request.form["username"]
       password=request.form["password"]
 
-      found_user = Users.query.filter_by(email=email).first()
+      found_user = Users.query.filter_by(username=username).first()
+
       
-      if found_user and password == found_user.password:
-         session["username"]=found_user.username
-         return redirect(url_for("home"))
+      if found_user:
+         if check_password_hash(found_user.password,password):
+            session["user"]=found_user.username
+            return redirect(url_for("home"))
+         else:
+            flash("Incorrect password","Error")
       else:
-         flash("Please check your email and password")
+         flash("Users does not exist","Error")
+         return redirect(url_for("login"))
    return render_template("Login.html")
 
+@app.route("/logout")
+def logout():
+   session.pop("user",None)
+   return redirect(url_for("login"))
 
 @app.route('/delete/<email>')
 def erase(email):
-    data = Users.query.get(email)
+    data = Users.query.filter_by(email=email).first()
     db.session.delete(data)
     db.session.commit()
     flash("User deleted successfully.")
     return redirect(url_for("signup"))
 
+@app.route("/create-post", methods=['GET', 'POST'])
+def create_post():
+   if "user" not in session:
+      flash("Please login to create a post", category="error")
+      return render_template("Login.html")
 
+   username=session.get("user")
+   user = Users.query.filter_by(username=username).first()
 
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(200), nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
+   if not user:
+      flash("User not found", category="error")
 
-    def __repr__(self):
-        return '<Task %r>' % self.id
+   if request.method == "POST":
+        text = request.form.get('text')
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            post = Post(text=text, author=username)
+            db.session.add(post)
+            db.session.commit()
+            flash('Post created!', category='success')
+            return redirect(url_for('home'))
+   return render_template("create_post.html")
+
+@app.route("/delete-post/<id>", methods=['GET','POST'])
+def delete_post(id):
+   post = Post.query.filter_by(id=id).first()
+
+   if not post:
+      flash("Post doesn't exist", category="error")
+   elif session.get("user") != post.author:
+      flash("You don't have permission to delete this post.", category="error")
+   else:
+      db.session.delete(post)
+      db.session.commit()
+      flash("Post deleted", category="success")
+   return redirect(url_for('home'))
+
+@app.route("/edit-post/<id>", methods=['GET', 'POST'])
+def edit_post(id):
+    post = Post.query.filter_by(id=id).first()
+
+    if not post:
+        flash("Post doesn't exist", category="error")
+        return redirect(url_for('home'))
+    
+    if session.get("user") != post.author:
+        flash("You don't have permission to edit this post.", category="error")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        text = request.form.get('text')
+        
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            post.text = text  # Update the post content
+            db.session.commit()
+            flash("Post updated successfully", category='success')
+            return redirect(url_for('home'))
+    
+    # For GET request, show the edit form with current post content
+    return render_template('edit_post.html', post=post)
+
+@app.route("/posts/<username>")
+def posts(username):
+   user = Users.query.filter_by(username=username).first()
+
+   if not user:
+      flash("No user with that username exists", category="error")
+      return redirect(url_for("home"))
+
+   posts = Post.query.filter_by(author=user.username).all()
+   user=session.get("username")
+
+   return render_template("posts.html", user=user, posts=posts, username=username)
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
