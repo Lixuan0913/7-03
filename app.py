@@ -39,6 +39,7 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
+      flash("You aren't logged in. Please log in to see the reviews.")
       return render_template("home.html")
 
 @app.route("/database")
