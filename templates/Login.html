@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -5,6 +6,8 @@
     </head>
 
     <body>
+      {% extends "base.html" %}
+      {% block content %}
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
@@ -20,11 +23,12 @@
            <label for="password">Password:</label>
            <input type="password" name="password" placeholder="Please enter password">
 
-          <button type="submit" name="submit">Login</button>
+           <br>
 
-          <button type="submit" name="submit"><a href="/signup">Signup</a></button>
+          <button type="submit" name="submit">Login</button>
          
         </form>
        </div>
+       {% endblock %}
     </body>
 </html>
