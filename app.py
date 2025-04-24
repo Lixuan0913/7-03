@@ -16,8 +16,7 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
-    password = db.Column(db.String(12), nullable=False)
-    identity = db.Column(db.String(10), nullable=False)  
+    password = db.Column(db.String(12), nullable=False)  
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     
 
@@ -25,13 +24,7 @@ class Users(db.Model):
         self.email=email
         self.username=username
         self.password=password
-        self.identity=self.get_identity()
-
-    def get_identity(self):
-       if self.email.endswith("@mmu.edu.my"):
-          return "lecturer"
-       if self.email.endswith("@student.mmu.edu.my"):
-          return "student"
+      
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
