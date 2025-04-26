@@ -1,6 +1,7 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from webforms import  SearchForm
 import re
 
 app = Flask(__name__,template_folder="templates")
@@ -30,6 +31,10 @@ class Post(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
 
 @app.route("/")
+@app.route("/intro")
+def index():
+   return render_template("intro.html")
+
 @app.route("/home")
 def home():
 
@@ -46,6 +51,35 @@ def home():
 def database():
    return render_template("database.html",values=Users.query.all())
 
+# Pass Stuff To Navbar
+@app.context_processor
+def base():
+	form = SearchForm()
+	return dict(form=form)
+
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    form = SearchForm()
+    
+    # Handle form submission
+    if form.validate_on_submit():
+        search_term = form.searched.data.strip()
+        if search_term:  # Only search if term is not empty
+            posts = Post.query.filter(
+                Post.text.ilike(f'%{search_term}%')
+            ).order_by(Post.id.desc()).all()
+            
+            return render_template('search.html',
+                               form=form,
+                               searched=search_term,
+                               posts=posts)
+        else:
+            flash('Please enter a search term', 'warning')
+            return redirect(url_for('search'))
+    
+    # Handle direct access to /search without submission
+    flash('Please enter a search term first', 'info')
+    return redirect(url_for('home')) 
 
 @app.route("/signup",methods=["GET","POST"])
 def signup():
