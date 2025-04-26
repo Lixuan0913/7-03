@@ -18,18 +18,24 @@ class Users(db.Model):
     email = db.Column("email",db.String(100), nullable=False)
     password = db.Column(db.String(12), nullable=False)  
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
-    
+    comments = db.relationship('Replies', backref='users', passive_deletes=True) 
 
     def __init__(self,email,username,password):
         self.email=email
         self.username=username
         self.password=password
       
-
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
+    comments = db.relationship('Replies', backref='post', passive_deletes=True) 
+
+class Replies(db.Model):
+   id = db.Column(db.Integer, primary_key=True)
+   text = db.Column(db.String(200), nullable=False)
+   author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
+   post_id = db.Column(db.String(100), db.ForeignKey('post.id'), nullable=False)
 
 @app.route("/")
 @app.route("/home")
@@ -41,7 +47,7 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
-      flash("You aren't logged in. Please log in to see the reviews.")
+      flash("You aren't logged in. Please login or signup to see the reviews.")
       return render_template("home.html")
 
 @app.route("/database")
@@ -208,6 +214,67 @@ def posts(username):
    user=session.get("username")
 
    return render_template("posts.html", user=user, posts=posts, username=username)
+
+@app.route("/create-comment/<post_id>", methods=["POST"])
+def create_comment(post_id):
+   text = request.form.get('text')
+   username=session.get("user")
+   user = Users.query.filter_by(username=username).first()
+
+   if not text :
+      flash("Comment cannot be empty", category="error")
+   else:
+      post = Post.query.filter_by(id=post_id)
+      if post:
+         comment = Replies(text=text, author=username, post_id=post_id)
+         db.session.add(comment)
+         db.session.commit()
+         flash("Comment posted")
+      else:
+         flash("Post doesn't exist", category="error")
+   
+   return redirect(url_for('home'))
+
+@app.route("/delete-comment/<comment_id>")
+def delete_comment(comment_id):
+   username=session.get("user")
+   user = Users.query.filter_by(username=username).first()
+   comment = Replies.query.filter_by(id=comment_id).first()
+
+   if not comment:
+      flash("Comment doesn't exist", category="error")
+   elif session.get("user") != comment.author and session.get("user") != comment.post.author:
+      flash("You don't have permission to delete this comment", category="error")
+   else:
+      db.session.delete(comment)
+      db.session.commit()
+   
+   return redirect(url_for('home'))
+
+@app.route("/edit-comment/<comment_id>", methods=["GET", "POST"])
+def edit_comment(comment_id):
+   comment = Replies.query.filter_by(id=comment_id).first()
+
+   if not comment:
+        flash("Post doesn't exist", category="error")
+        return redirect(url_for('home'))
+    
+   if session.get("user") != comment.author:
+        flash("You don't have permission to edit this post.", category="error")
+        return redirect(url_for('home'))
+
+   if request.method == 'POST':
+        text = request.form.get('text')
+        
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            comment.text = text  # Update the post content
+            db.session.commit()
+            flash("Comment updated successfully", category='success')
+            return redirect(url_for('home'))
+    
+   return render_template('edit_comment.html', comment=comment)
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request

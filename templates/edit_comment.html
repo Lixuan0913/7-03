@@ -1,0 +1,12 @@
+{% extends "posts_div.html" %}  
+{% block content %}
+<h1 align="center">Edit Comment</h1>
+<form method="POST">
+    <textarea name="text" id="text" class="form-control">{{ comment.text }}</textarea>
+    <br>
+    <div align="center">
+        <button type="submit" class="btn btn-primary">Update Comment</button>
+        <a href="{{ url_for('home') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+    </form>
+{% endblock %}

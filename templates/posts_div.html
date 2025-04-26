@@ -1,6 +1,5 @@
 {% extends "base.html" %}
-{% block title %}
-{% endblock %}
+{% block title %}Posts{% endblock %}
 {% block content %}
 <h1 align="center">{% block header %}Reviews{% endblock %}</h1>
 
@@ -8,8 +7,8 @@
     {% for post in posts %}
         <div class="card border-dark">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <a href="/posts/{{post.users.username}}">{{post.users.username}}</a>
-                {% if session['user']==post.author %}
+                <a href="/posts/{{post.author}}">{{post.author}}</a>
+                {% if session['user'] == post.author %}
                 <div class="btn-group">
                     <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
                     <ul class="dropdown-menu">
@@ -20,14 +19,54 @@
                 {% endif %}
             </div>
             <div class="card-body">
-                <div class="card-text">
-                    {{post.text}}
+                <div class="card-text">{{post.text}}</div>
+                <br>
+                <div class="collapse" id="comments-{{post.id}}">
+                    <div class="card">
+                        <div class="card-body" id="comments-expanded-{{post.id}}">
+                            {% for comment in post.comments %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <a href="/posts/{{comment.author}}">{{comment.author}}</a>: {{comment.text}}
+                                    </div>
+                                    <div>
+                                        {% if session['user'] == comment.author or session['user'] == post.author %}
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item">Delete</a></li>
+                                                <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item">Edit</a></li>
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if not loop.last %}<hr>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
+                <p class="card-text">
+                    {% if post.comments|length > 0 %}
+                        <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button">
+                            <small>View {{post.comments|length}} comment(s)</small>
+                        </a>
+                    {% else %}
+                        <small class="text-muted">No comments</small>
+                    {% endif %}
+                </p>
+                {% if 'user' in session %}
+                <form class="input-group mb-3" method="POST" action="/create-comment/{{post.id}}">
+                    <input type="text" id="text" name="text" class="form-control" placeholder="Comment something!" required>
+                    <button type="submit" class="btn btn-primary">Comment</button>
+                </form>
+                {% endif %}
             </div>
         </div>
-        <br />
+        <br>
     {% endfor %}
 </div>
+
 {% block footer %}
 <div align="center">
     <a href="/create-post"><button type="button" class="btn btn-primary btn-lg">Create a post</button></a>
