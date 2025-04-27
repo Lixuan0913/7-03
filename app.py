@@ -1,6 +1,7 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from webforms import SearchForm
 import re
 from werkzeug.utils import secure_filename
 import uuid as uuid
@@ -25,12 +26,13 @@ class Users(db.Model):
     image_file=db.Column(db.String(20),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
-    
+    comments = db.relationship('Replies', backref='users', passive_deletes=True) 
 
     def __init__(self,email,username,password):
         self.email=email
         self.username=username
         self.password=password
+      
         self.identity=self.get_identity()
 
     def get_identity(self):
@@ -45,8 +47,19 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
+    comments = db.relationship('Replies', backref='post', passive_deletes=True) 
+
+class Replies(db.Model):
+   id = db.Column(db.Integer, primary_key=True)
+   text = db.Column(db.String(200), nullable=False)
+   author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
+   post_id = db.Column(db.String(100), db.ForeignKey('post.id'), nullable=False)
 
 @app.route("/")
+@app.route("/intro")
+def index():
+   return render_template("intro.html")
+
 @app.route("/home")
 def home():
 
@@ -57,7 +70,7 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
-      flash("You aren't logged in. Please log in to see the reviews.")
+      flash("You aren't logged in. Please login or signup to see the reviews.")
       return render_template("home.html")
 
 @app.route("/database")
@@ -226,6 +239,135 @@ def posts(username):
    user=session.get("username")
 
    return render_template("posts.html", user=user, posts=posts, username=username)
+
+@app.route("/create-comment/<post_id>", methods=["POST"])
+def create_comment(post_id):
+   text = request.form.get('text')
+   username=session.get("user")
+   user = Users.query.filter_by(username=username).first()
+
+   if not text :
+      flash("Comment cannot be empty", category="error")
+   else:
+      post = Post.query.filter_by(id=post_id)
+      if post:
+         comment = Replies(text=text, author=username, post_id=post_id)
+         db.session.add(comment)
+         db.session.commit()
+         flash("Comment posted")
+      else:
+         flash("Post doesn't exist", category="error")
+   
+   return redirect(url_for('home'))
+
+@app.route("/delete-comment/<comment_id>")
+def delete_comment(comment_id):
+   username=session.get("user")
+   user = Users.query.filter_by(username=username).first()
+   comment = Replies.query.filter_by(id=comment_id).first()
+
+   if not comment:
+      flash("Comment doesn't exist", category="error")
+   elif session.get("user") != comment.author and session.get("user") != comment.post.author:
+      flash("You don't have permission to delete this comment", category="error")
+   else:
+      db.session.delete(comment)
+      db.session.commit()
+   
+   return redirect(url_for('home'))
+
+@app.route("/edit-comment/<comment_id>", methods=["GET", "POST"])
+def edit_comment(comment_id):
+   comment = Replies.query.filter_by(id=comment_id).first()
+
+   if not comment:
+        flash("Post doesn't exist", category="error")
+        return redirect(url_for('home'))
+    
+   if session.get("user") != comment.author:
+        flash("You don't have permission to edit this post.", category="error")
+        return redirect(url_for('home'))
+
+   if request.method == 'POST':
+        text = request.form.get('text')
+        
+        if not text:
+            flash("Post cannot be empty", category='error')
+        else:
+            comment.text = text  # Update the post content
+            db.session.commit()
+            flash("Comment updated successfully", category='success')
+            return redirect(url_for('home'))
+    
+   return render_template('edit_comment.html', comment=comment)
+
+# Pass Stuff To Navbar
+@app.context_processor
+def base():
+	form = SearchForm()
+	return dict(form=form)
+
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    form = SearchForm()
+    
+    if form.validate_on_submit():
+        search_term = form.searched.data.strip()
+        if search_term:
+            # Debug: Print search term
+            print(f"Searching for: {search_term}")
+            
+            # Search in posts
+            posts = Post.query.filter(
+                Post.text.ilike(f'%{search_term}%')
+            ).order_by(Post.id.desc()).all()
+            print(f"Found {len(posts)} post matches")
+            
+            # Search in comments
+            comments = Replies.query.filter(
+                Replies.text.ilike(f'%{search_term}%')
+            ).order_by(Replies.id.desc()).all()
+            print(f"Found {len(comments)} comment matches")
+            
+            # Get all post IDs that have matching comments
+            post_ids_with_matching_comments = {comment.post_id for comment in comments}
+            print(f"Posts with matching comments: {post_ids_with_matching_comments}")
+            
+            # Get posts that have matching comments but didn't match in post text
+            additional_posts = Post.query.filter(
+                Post.id.in_(post_ids_with_matching_comments),
+                ~Post.id.in_([post.id for post in posts])
+            ).all()
+            print(f"Found {len(additional_posts)} additional posts via comments")
+            
+            # Combine all posts to display (remove duplicates)
+            all_posts = []
+            seen_post_ids = set()
+            for post in posts + additional_posts:
+                if post.id not in seen_post_ids:
+                    all_posts.append(post)
+                    seen_post_ids.add(post.id)
+            
+            print(f"Total posts to display: {len(all_posts)}")
+            
+            # Create a dictionary to organize comments by post ID
+            comments_by_post = {}
+            for comment in comments:
+                if comment.post_id not in comments_by_post:
+                    comments_by_post[comment.post_id] = []
+                comments_by_post[comment.post_id].append(comment)
+            
+            return render_template('search.html',
+                               form=form,
+                               searched=search_term,
+                               posts=all_posts,
+                               comments_by_post=comments_by_post)
+        else:
+            flash('Please enter a search term', 'warning')
+            return redirect(url_for('search'))
+    
+    flash('Please enter a search term first', 'info')
+    return redirect(url_for('home'))
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
