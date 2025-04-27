@@ -29,14 +29,14 @@ class Users(db.Model):
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.Text, nullable=False)
-    author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
-    comments = db.relationship('Replies', backref='post', passive_deletes=True) 
+    author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
+    comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
 
 class Replies(db.Model):
-   id = db.Column(db.Integer, primary_key=True)
-   text = db.Column(db.String(200), nullable=False)
-   author = db.Column(db.String(100), db.ForeignKey('users.username'), nullable=False)
-   post_id = db.Column(db.String(100), db.ForeignKey('post.id'), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.String(200), nullable=False)
+    author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
 
 @app.route("/")
 @app.route("/intro")
@@ -169,17 +169,25 @@ def create_post():
 
 @app.route("/delete-post/<id>", methods=['GET','POST'])
 def delete_post(id):
-   post = Post.query.filter_by(id=id).first()
+    post = Post.query.filter_by(id=id).first()
 
-   if not post:
-      flash("Post doesn't exist", category="error")
-   elif session.get("user") != post.author:
-      flash("You don't have permission to delete this post.", category="error")
-   else:
-      db.session.delete(post)
-      db.session.commit()
-      flash("Post deleted", category="success")
-   return redirect(url_for('home'))
+    if not post:
+        flash("Post doesn't exist", category="error")
+    elif session.get("user") != post.author:
+        flash("You don't have permission to delete this post.", category="error")
+    else:
+        try:
+            # First delete all comments associated with the post
+            Replies.query.filter_by(post_id=post.id).delete()
+            # Then delete the post
+            db.session.delete(post)
+            db.session.commit()
+            flash("Post and its comments are deleted", category="success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting post: {str(e)}", category="error")
+    
+    return redirect(url_for('home'))
 
 @app.route("/edit-post/<id>", methods=['GET', 'POST'])
 def edit_post(id):
