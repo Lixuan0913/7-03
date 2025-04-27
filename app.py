@@ -3,12 +3,17 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
 import re
+from werkzeug.utils import secure_filename
+import uuid as uuid
+import os
 
 app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
+UPLOAD_FOLDER="static/profile/pics"
+app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
@@ -18,6 +23,8 @@ class Users(db.Model):
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
     password = db.Column(db.String(12), nullable=False)  
+    image_file=db.Column(db.String(20),nullable=False,default='default.jpg')
+    identity=db.Column(db.String(20),nullable=False)
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
 
@@ -26,6 +33,16 @@ class Users(db.Model):
         self.username=username
         self.password=password
       
+        self.identity=self.get_identity()
+
+    def get_identity(self):
+        if self.email.endswith("@mmu.edu.my"):
+           return "lecturer"
+        if self.email.endswith("@student.mmu.edu.my"):
+           return "student"
+        
+      
+
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.Text, nullable=False)
@@ -48,7 +65,8 @@ def home():
 
    if "user" in session:
       posts = Post.query.all()
-      user=session.get("username")
+      username = session["user"]
+      user = Users.query.filter_by(username=username).first()
       return render_template("home.html", user=user, posts=posts)
       
    else:
@@ -132,7 +150,9 @@ def login():
 @app.route("/logout")
 def logout():
    session.pop("user",None)
+   flash("You have been logout","sucess")
    return redirect(url_for("login"))
+
 
 @app.route('/delete/<email>')
 def erase(email):
@@ -356,6 +376,53 @@ def search():
     
     flash('Please enter a search term first', 'info')
     return redirect(url_for('home'))
+
+@app.route("/profile/<username>", methods=["GET", "POST"])
+def profile(username):
+    current_user = Users.query.filter_by(username=username).first()
+    if not current_user:
+        flash("User not found")
+        return redirect(url_for("Login"))
+    
+    if request.method == "POST":
+        # Get form data
+        new_username = request.form.get("username")
+        new_password = request.form.get("password")
+        confirm_password = request.form.get("confirm-password")
+        image_file = request.files.get("profile-picture")
+
+        # Update username
+        if new_username:
+            current_user.username = new_username
+
+        # Update password if provided
+        if new_password:
+            if new_password == confirm_password:
+                current_user.password = generate_password_hash(new_password)
+            else:
+                flash("Password does not match", "danger")
+                return redirect(url_for("profile", username=current_user.username))
+
+        # Handle image upload
+        if image_file and image_file.filename != '':
+            filename = secure_filename(image_file.filename)
+            unique_filename = str(uuid.uuid1()) + '_' + filename
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            image_file.save(image_path)
+            current_user.image_file = unique_filename
+
+
+        try:
+            db.session.commit()
+            flash("Update Successful", "success")
+            return redirect(url_for("profile", username=current_user.username))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating profile: {str(e)}", "danger")
+
+    image_file = url_for('static', filename='profile/pics/' + current_user.image_file)
+    return render_template("Profile.html", user=current_user, image_file=image_file)
+   
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
