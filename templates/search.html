@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if searched %}
+        <h2 class="mb-4">Search Results for: <em>{{ searched }}</em></h2>
+        
+        {% if posts %}
+            <div id="posts">
+                {% for post in posts %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{{ post.author }}</span>
+                            {% if 'user' in session and session['user'] == post.author %}
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
+                                <ul class="dropdown-menu">
+                                    <li><a href="{{ url_for('delete_post', id=post.id) }}" class="dropdown-item">Delete</a></li>
+                                    <li><a href="{{ url_for('edit_post', id=post.id) }}" class="dropdown-item">Edit</a></li>
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ post.text }}</p>
+                        
+                        <!-- Comments section -->
+                        {% if comments_by_post.get(post.id) %}
+                            <div class="comments-section mt-3">
+                                {% for comment in comments_by_post[post.id] %}
+                                    <div class="comment mb-2 p-2 bg-light rounded">
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted">{{ comment.author }}</small>
+                                            {% if 'user' in session and session['user'] == comment.author %}
+                                            <div>
+                                                <a href="{{ url_for('edit_comment', comment_id=comment.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                                <a href="{{ url_for('delete_comment', comment_id=comment.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <p class="mb-0 mt-1">{{ comment.text }}</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No posts or comments found matching: <strong>{{ searched }}</strong>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

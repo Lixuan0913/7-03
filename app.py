@@ -1,6 +1,7 @@
 from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from webforms import SearchForm
 import re
 
 app = Flask(__name__,template_folder="templates")
@@ -38,6 +39,10 @@ class Replies(db.Model):
    post_id = db.Column(db.String(100), db.ForeignKey('post.id'), nullable=False)
 
 @app.route("/")
+@app.route("/intro")
+def index():
+   return render_template("intro.html")
+
 @app.route("/home")
 def home():
 
@@ -275,6 +280,74 @@ def edit_comment(comment_id):
             return redirect(url_for('home'))
     
    return render_template('edit_comment.html', comment=comment)
+
+# Pass Stuff To Navbar
+@app.context_processor
+def base():
+	form = SearchForm()
+	return dict(form=form)
+
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    form = SearchForm()
+    
+    if form.validate_on_submit():
+        search_term = form.searched.data.strip()
+        if search_term:
+            # Debug: Print search term
+            print(f"Searching for: {search_term}")
+            
+            # Search in posts
+            posts = Post.query.filter(
+                Post.text.ilike(f'%{search_term}%')
+            ).order_by(Post.id.desc()).all()
+            print(f"Found {len(posts)} post matches")
+            
+            # Search in comments
+            comments = Replies.query.filter(
+                Replies.text.ilike(f'%{search_term}%')
+            ).order_by(Replies.id.desc()).all()
+            print(f"Found {len(comments)} comment matches")
+            
+            # Get all post IDs that have matching comments
+            post_ids_with_matching_comments = {comment.post_id for comment in comments}
+            print(f"Posts with matching comments: {post_ids_with_matching_comments}")
+            
+            # Get posts that have matching comments but didn't match in post text
+            additional_posts = Post.query.filter(
+                Post.id.in_(post_ids_with_matching_comments),
+                ~Post.id.in_([post.id for post in posts])
+            ).all()
+            print(f"Found {len(additional_posts)} additional posts via comments")
+            
+            # Combine all posts to display (remove duplicates)
+            all_posts = []
+            seen_post_ids = set()
+            for post in posts + additional_posts:
+                if post.id not in seen_post_ids:
+                    all_posts.append(post)
+                    seen_post_ids.add(post.id)
+            
+            print(f"Total posts to display: {len(all_posts)}")
+            
+            # Create a dictionary to organize comments by post ID
+            comments_by_post = {}
+            for comment in comments:
+                if comment.post_id not in comments_by_post:
+                    comments_by_post[comment.post_id] = []
+                comments_by_post[comment.post_id].append(comment)
+            
+            return render_template('search.html',
+                               form=form,
+                               searched=search_term,
+                               posts=all_posts,
+                               comments_by_post=comments_by_post)
+        else:
+            flash('Please enter a search term', 'warning')
+            return redirect(url_for('search'))
+    
+    flash('Please enter a search term first', 'info')
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
