@@ -70,7 +70,7 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
-      flash("You aren't logged in. Please login or signup to see the reviews.")
+      flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
       return render_template("home.html")
 
 @app.route("/database")
@@ -99,12 +99,12 @@ def signup():
           return redirect(url_for("signup"))
          
       if actual_password != confirm_password:
-          flash("Passwords does not match","Error")
+          flash("Passwords does not match","danger")
           return redirect(url_for("signup"))
          
       existing_user = Users.query.filter_by(username=username).first()
       if existing_user:
-         flash("User already exist", "Error")
+         flash("User already exist", "danger")
          return redirect(url_for("signup"))
       
       try:
@@ -141,16 +141,16 @@ def login():
             session["user"]=found_user.username
             return redirect(url_for("home"))
          else:
-            flash("Incorrect password","Error")
+            flash("Incorrect password","danger")
       else:
-         flash("Users does not exist","Error")
+         flash("Users does not exist","danger")
          return redirect(url_for("login"))
    return render_template("Login.html")
 
 @app.route("/logout")
 def logout():
    session.pop("user",None)
-   flash("You have been logout","sucess")
+   flash("You have been logout","success")
    return redirect(url_for("login"))
 
 
