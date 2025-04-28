@@ -35,7 +35,9 @@
                   </ul>
                   {% if user %}
                   <ul class="nav-item">
-                   <a class="nav-link" href="{{ url_for('profile', username=user.username) }}">Profile</a>
+                   <a class="nav-link" href="{{ url_for('profile', username=user.username) }}">
+                    <img  class="rounded float-start img-thumbnail rounded-circle" src= "{{ url_for('static', filename='profile/pics/' + user.image_file) }}" alt="Profile-image" style="height: 60px; width: 80px;margin-right: 20px; position:relative;top:10px;">
+                </a>
                   </ul>
                  {% endif %}
                   <form class="d-flex" action="{{ url_for('search') }}" method="POST">
