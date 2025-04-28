@@ -8,6 +8,35 @@ body {
     padding: 0;
     height: 100vh;
 }
+
+/* Navbar Styles */
+.navbar {
+    position: relative;
+    padding: 0.5rem 1rem;
+}
+
+.navbar .search-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.navbar .right-items {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.navbar .navbar-nav.flex-row {
+    flex-direction: row;
+}
+
+.navbar .dropdown-menu {
+    right: 0;
+    left: auto;
+}
+
+/* Existing Search Styles */
 .search-container {
     max-width: 600px;
     margin: 50px auto;
@@ -55,8 +84,7 @@ body {
     text-decoration: none;
 }
 
-
-.update-form{
+.update-form {
     border: 2px solid #e0e0e0;
     border-radius: 10px;
     width: 600px; /* Adjust width as needed */
@@ -64,8 +92,8 @@ body {
     background-color: #ffffff;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     margin: 0 auto; /* Centers the form horizontally */
-
 }
+
 .update-form h1 {
     text-align: center;
     margin-bottom: 20px; 
