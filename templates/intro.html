@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base2.html" %}
 {% block title %}Home Page{% endblock %}
 {% block content %}
 <h1>Welcome to YouMMU where you can review things at MMU!</h1>
@@ -7,7 +7,7 @@
     <form class="d-flex" action="{{ url_for('search') }}" method="POST">
         {{ form.hidden_tag() }}
         <input class="form-control me-2" type="search" name="searched" placeholder="Search posts...">
-        <button class="btn btn-outline-success" type="submit">Search</button>
+        <button class="btn btn-outline-dark" type="submit">Search</button>
     </form>
 </div>
 {% endblock %}
