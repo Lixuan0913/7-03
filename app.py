@@ -41,10 +41,9 @@ class Users(db.Model):
         if self.email.endswith("@student.mmu.edu.my"):
            return "student"
         
-      
-
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    ratings = db.Column(db.Integer)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
@@ -166,7 +165,7 @@ def erase(email):
 def create_post():
    if "user" not in session:
       flash("Please login to create a post", category="error")
-      return render_template("Login.html")
+      return redirect(url_for("login"))
 
    username=session.get("user")
    user = Users.query.filter_by(username=username).first()
@@ -175,12 +174,17 @@ def create_post():
       flash("User not found", category="error")
 
    if request.method == "POST":
-        text = request.form.get('text')
+        text = request.form.get('text', '').strip()  # Get and clean the text
+        ratings = request.form.get('ratings')
 
         if not text:
-            flash("Post cannot be empty", category='error')
+            flash("Post cannot be empty", category='danger')
+            return render_template("create_post.html")
+        if not ratings:
+            flash("Select a rating", category="danger")
+            return render_template("create_post.html", text=text)
         else:
-            post = Post(text=text, author=username)
+            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
             db.session.add(post)
             db.session.commit()
             flash('Post created!', category='success')
