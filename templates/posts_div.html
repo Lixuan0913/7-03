@@ -7,7 +7,10 @@
     {% for post in posts %}
         <div class="card border-dark">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <a href="/posts/{{post.author}}">{{post.author}}</a>
+                <div class="d-flex align-items-center">
+                    <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" alt="Profile-image" style="height: 40px; width: 40px; border: 1px solid white;">
+                    <a href="/profile/{{post.author}}" class="ms-2">{{post.author}}</a>
+                </div>
                 {% if session['user'] == post.author %}
                 <div class="btn-group">
                     <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
@@ -27,6 +30,7 @@
                             {% for comment in post.comments %}
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
+                                        <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" alt="Profile-image" style="height: 30px; width: 30px; border: 1px solid #333; margin-right: 5px; position:relative; bottom: 6px;">
                                         <a href="/posts/{{comment.author}}">{{comment.author}}</a>: {{comment.text}}
                                     </div>
                                     <div>

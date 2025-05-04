@@ -47,10 +47,10 @@
                             </ul>
                         </li>
                     </ul>
-                    {% if user %}
+                    {% if current_user %}
                     <ul class="nav-item">
-                        <a class="nav-link" href="{{ url_for('profile', username=user.username) }}">
-                            <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + user.image_file) }}" alt="Profile-image" style="height: 40px; width: 40px; margin-left: 10px;">
+                        <a class="nav-link" href="{{ url_for('profile', username=current_user.username) }}">
+                            <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + current_user.image_file) }}" alt="Profile-image" style="height: 50px; width: 50px; margin-left: 10px;">
                         </a>
                     </ul>
                     {% endif %}

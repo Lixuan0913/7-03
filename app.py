@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
 import re
+import secrets
+from PIL import Image
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
@@ -23,7 +25,7 @@ class Users(db.Model):
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
     password = db.Column(db.String(12), nullable=False)  
-    image_file=db.Column(db.String(20),nullable=False,default='default.jpg')
+    image_file=db.Column(db.String(100),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
@@ -58,7 +60,14 @@ class Replies(db.Model):
 @app.route("/")
 @app.route("/intro")
 def index():
-   return render_template("intro.html")
+   
+   if "user" in session:
+      posts = Post.query.all()
+      username = session["user"]
+      user = Users.query.filter_by(username=username).first()
+      return render_template("home.html", user=user, posts=posts)
+   else:
+      return render_template("intro.html")
 
 @app.route("/home")
 def home():
@@ -125,6 +134,16 @@ def signup():
 
     
     return render_template("Signup.html")
+@app.context_processor
+def inject_current_user():
+    # Get username from session
+    username = session.get('user')
+    
+    # If user is logged in, get their full user object
+    if username:
+        current_user = Users.query.filter_by(username=username).first()
+        return {'current_user': current_user}
+    return {'current_user': None}
 
 @app.route("/login",methods=["GET","POST"])
 def login():
@@ -139,6 +158,7 @@ def login():
       if found_user:
          if check_password_hash(found_user.password,password):
             session["user"]=found_user.username
+            session["user_id"] = found_user.id
             return redirect(url_for("home"))
          else:
             flash("Incorrect password","Error")
@@ -154,12 +174,15 @@ def logout():
    return redirect(url_for("login"))
 
 
-@app.route('/delete/<email>')
-def erase(email):
-    data = Users.query.filter_by(email=email).first()
-    db.session.delete(data)
-    db.session.commit()
-    flash("User deleted successfully.")
+@app.route('/delete/<email>',methods=["POST"])
+def delete_user(email):
+    if request.method=="POST":
+      data = Users.query.filter_by(email=email).first()
+      db.session.delete(data)
+      db.session.commit()
+      flash("User deleted successfully.")
+    else:
+        flash("User not found.", "error")
     return redirect(url_for("signup"))
 
 @app.route("/create-post", methods=['GET', 'POST'])
@@ -206,6 +229,13 @@ def delete_post(id):
         except Exception as e:
             db.session.rollback()
             flash(f"Error deleting post: {str(e)}", category="error")
+
+     # Check if the referrer is the profile page
+    referrer = request.referrer
+    if referrer and '/profile/' in referrer:
+       # Extract username from referrer URL
+       profile_username = referrer.split('/profile/')[-1].split('?')[0]
+       return redirect(url_for('profile', username=profile_username))
     
     return redirect(url_for('home'))
 
@@ -242,7 +272,7 @@ def posts(username):
    if not user:
       flash("No user with that username exists", category="error")
       return redirect(url_for("home"))
-
+   
    posts = Post.query.filter_by(author=user.username).all()
    user=session.get("username")
 
@@ -281,6 +311,12 @@ def delete_comment(comment_id):
    else:
       db.session.delete(comment)
       db.session.commit()
+     # Check if the referrer is the profile page
+   referrer = request.referrer
+   if referrer and '/profile/' in referrer:
+       # Extract username from referrer URL
+       profile_username = referrer.split('/profile/')[-1].split('?')[0]
+       return redirect(url_for('profile', username=profile_username))
    
    return redirect(url_for('home'))
 
@@ -379,10 +415,38 @@ def search():
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
+    profile_user = Users.query.filter_by(username=username).first()
+    if not profile_user:
+        flash("User not found")
+        return redirect(url_for("Login"))
+    
+    # Get all posts by this user, ordered by newest first
+    user_posts = Post.query.filter_by(author=username).order_by(Post.id.desc()).all()
+   
+    image_file = url_for('static', filename='profile/pics/' + profile_user.image_file)
+    return render_template("Profile.html", user=profile_user, image_file=image_file,posts=user_posts)
+
+def save_picture(form_picture):
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_picture.filename)
+    picture_fn = random_hex + f_ext
+    picture_path = os.path.join(app.root_path, 'static/profile/pics', picture_fn)
+
+    output_size = (125, 125)  # Optional resizing
+    i = Image.open(form_picture)
+    i.thumbnail(output_size)
+    i.save(picture_path)
+
+    return picture_fn
+
+@app.route("/update/<username>", methods=["GET", "POST"])
+def update(username):
     current_user = Users.query.filter_by(username=username).first()
     if not current_user:
         flash("User not found")
         return redirect(url_for("Login"))
+    
+
     
     if request.method == "POST":
         # Get form data
@@ -390,7 +454,8 @@ def profile(username):
         new_password = request.form.get("password")
         confirm_password = request.form.get("confirm-password")
         image_file = request.files.get("profile-picture")
-
+        reset_picture=request.form.get("reset_picture")
+        
         # Update username
         if new_username:
             current_user.username = new_username
@@ -401,16 +466,30 @@ def profile(username):
                 current_user.password = generate_password_hash(new_password)
             else:
                 flash("Password does not match", "danger")
-                return redirect(url_for("profile", username=current_user.username))
+                return redirect(url_for("update", username=current_user.username))
+            
+        
+
 
         # Handle image upload
         if image_file and image_file.filename != '':
+            # Save to a temporary location to check the file type
             filename = secure_filename(image_file.filename)
-            unique_filename = str(uuid.uuid1()) + '_' + filename
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            image_file.save(image_path)
-            current_user.image_file = unique_filename
+            file_ext = os.path.splitext(filename)[1].lower()  # Get the file extension
+    
+            if file_ext not in ['.jpg', '.jpeg', '.png']:
+              flash("Only JPG or PNG are allowed","alert")
+              return redirect(url_for("update", username=current_user.username))
 
+            else:
+              unique_filename = str(uuid.uuid1()) + '_' + filename
+              image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+              image_file.save(image_path)
+              current_user.image_file = unique_filename
+
+        if reset_picture:
+            current_user.image_file = 'default.jpg'
+            flash("Profile picture reset to default", "success")
 
         try:
             db.session.commit()
@@ -420,9 +499,8 @@ def profile(username):
             db.session.rollback()
             flash(f"Error updating profile: {str(e)}", "danger")
 
-    image_file = url_for('static', filename='profile/pics/' + current_user.image_file)
-    return render_template("Profile.html", user=current_user, image_file=image_file)
-   
+    return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
+
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
