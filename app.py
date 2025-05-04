@@ -199,11 +199,16 @@ def delete_user(email):
 
 def create_tags():
     default_tags=['Lecturer','Facilities','Food']
-    for tag_name in default_tags:
-        if not Tag.query.filter_by(name=tag_name).first():
-            tag=Tag(name=tag_name,is_default=True)
-            db.session.add(tag)
-    db.session.commit()
+    existing_tags={tag.name for tag in Tag.query.filter(Tag.name.in_(default_tags)).all()}
+    
+    new_tags = [Tag(name=tag_name, is_default=True)
+        for tag_name in default_tags
+        if tag_name not in existing_tags
+    ]
+
+    if new_tags:
+        db.session.bulk_save_objects(new_tags)
+        db.session.commit()
 
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
@@ -215,15 +220,17 @@ def create_post():
 
    username=session.get("user")
    user = Users.query.filter_by(username=username).first()
-   
-   default_tags = Tag.query.filter_by(is_default=True).all()
+
    if not user:
       flash("User not found", category="error")
+    
+   default_tags = Tag.query.filter_by(is_default=True).all()
 
    if request.method == "POST":
         text = request.form.get('text', '').strip()  # Get and clean the text
         ratings = request.form.get('ratings')
         selected_default_tags = request.form.getlist('default_tags')
+        custom_tags = request.form.get('custom_tags',' ').strip()
 
         if not text:
             flash("Post cannot be empty", category='danger')
@@ -234,11 +241,31 @@ def create_post():
         else:
             post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
             db.session.add(post)
+
+            #Process default tags
             for tag_id in selected_default_tags:
                 tag=Tag.query.get(tag_id)
                 if tag:
                     post.tags.append(tag)
+
+            # Process custom tags
+            if custom_tags:
+                  
+                for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
+
+                    # Check if tag exists (case-insensitive)
+                    tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
+
+                    if not tag:  # Create new tag if it doesn't exist
+                      tag = Tag(name=tag_name, is_default=False)
+                      db.session.add(tag)
+                      db.session.flush()
+
+                    if tag not in post.tags: # prevent duplicate
+                      post.tags.append(tag)
+
             db.session.commit()
+
             flash('Post created!', category='success')
             return redirect(url_for('home'))
    return render_template("create_post.html",default_tags=default_tags)

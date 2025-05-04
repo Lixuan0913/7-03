@@ -12,8 +12,8 @@
                         src="{{ image_file }}" 
                         style="height: 125px; width: 125px;">
                    <div class="text-left">
-                       <h2>Username: {{user.username}} ({{user.identity}})</h2>
-                       <h2>Email: {{user.email}}</h2>
+                       <h2 class="mb-4">Username: {{user.username}} ({{user.identity}})</h2>
+                       <h2 class="email mb-4">Email: {{user.email}}</h2>
                        {% if current_user and current_user.username == user.username %}
                        <div class="d-flex flex-column align-items-start gap-2 mt-3">
                            <a href="{{ url_for('posts', username=user.username) }}" class="btn btn-secondary">Your Posts</a>

@@ -42,6 +42,14 @@
                 <input type="checkbox" name="default_tags" value="{{ tag.id }}">{{ tag.name }}</input>
               </label>
               {% endfor %}
+              <div class="tag-input-section mt-3">
+                <label for="custom-tags">Add Your Own Tags (comma separated):</label>
+                <input type="text" 
+                       id="custom-tags" 
+                       name="custom_tags" 
+                       class="form-control"
+                       placeholder="e.g., classroom">
+            </div>
         </div>
 
         <div class="form-actions text-center">
