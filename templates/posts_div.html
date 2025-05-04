@@ -5,7 +5,7 @@
 
 <div id="posts">
     {% for post in posts %}
-        <div class="card border-dark">
+        <div class="card border-dark mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
                     <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" alt="Profile-image" style="height: 40px; width: 40px; border: 1px solid white;">
@@ -15,65 +15,138 @@
                 <div class="btn-group">
                     <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
                     <ul class="dropdown-menu">
-                        <li><a href="/delete-post/{{post.id}}" class="dropdown-item">Delete</a></li>
+                        <li><a href="/delete-post/{{post.id}}" class="dropdown-item text-danger">Delete</a></li>
                         <li><a href="/edit-post/{{post.id}}" class="dropdown-item">Edit</a></li>
                     </ul>
                 </div>
                 {% endif %}
             </div>
+            
             <div class="card-body">
-                <div class="card-text">{{post.text}}</div>
-                <br>
-                <div class="collapse" id="comments-{{post.id}}">
-                    <div class="card">
-                        <div class="card-body" id="comments-expanded-{{post.id}}">
+                <!-- Star Rating Display -->
+                <div class="mb-3">
+                    {% if post.ratings is not none %}
+                    <div class="star-rating-display d-flex align-items-center">
+                        <div class="stars me-2">
+                            {% for i in range(1, 6) %}
+                                <span class="star {% if i <= post.ratings %}filled{% endif %}">★</span>
+                            {% endfor %}
+                        </div>
+                        <span class="rating-badge text-white px-2 py-1 rounded">
+                            {{ post.ratings }}/5
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="no-rating text-muted">
+                        <i class="fas fa-star-half-alt"></i> No rating provided
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Post Content -->
+                <div class="card-text mb-3">{{post.text}}</div>
+                
+                <!-- Comments Section -->
+                <div class="comments-section">
+                    <div class="collapse" id="comments-{{post.id}}">
+                        <div class="card card-body bg-light">
                             {% for comment in post.comments %}
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="comment-item d-flex justify-content-between align-items-center mb-2">
                                     <div>
                                         <img class="rounded float-start img-thumbnail rounded-circle" src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" alt="Profile-image" style="height: 30px; width: 30px; border: 1px solid #333; margin-right: 5px; position:relative; bottom: 6px;">
                                         <a href="/posts/{{comment.author}}">{{comment.author}}</a>: {{comment.text}}
                                     </div>
-                                    <div>
-                                        {% if session['user'] == comment.author or session['user'] == post.author %}
+                                    {% if session['user'] == comment.author or session['user'] == post.author %}
+                                    <div class="comment-actions">
                                         <div class="btn-group">
-                                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"></button>
                                             <ul class="dropdown-menu">
-                                                <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item">Delete</a></li>
+                                                <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger">Delete</a></li>
                                                 <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item">Edit</a></li>
                                             </ul>
                                         </div>
-                                        {% endif %}
                                     </div>
+                                    {% endif %}
                                 </div>
-                                {% if not loop.last %}<hr>{% endif %}
+                                {% if not loop.last %}<hr class="my-1">{% endif %}
                             {% endfor %}
                         </div>
                     </div>
-                </div>
-                <p class="card-text">
-                    {% if post.comments|length > 0 %}
-                        <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button">
-                            <small>View {{post.comments|length}} comment(s)</small>
-                        </a>
-                    {% else %}
-                        <small class="text-muted">No comments</small>
+                    
+                    <p class="mt-2 mb-3">
+                        {% if post.comments|length > 0 %}
+                            <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button" class="text-decoration-none">
+                                <small class="text-primary">
+                                    <i class="fas fa-comments"></i> View {{post.comments|length}} comment(s)
+                                </small>
+                            </a>
+                        {% else %}
+                            <small class="text-muted">
+                                <i class="far fa-comment"></i> No comments yet
+                            </small>
+                        {% endif %}
+                    </p>
+                    
+                    {% if 'user' in session %}
+                    <form class="comment-form input-group mb-0" method="POST" action="/create-comment/{{post.id}}">
+                        <input type="text" name="text" class="form-control" placeholder="Write a comment..." required>
+                        <button type="submit" class="btn btn-outline-primary">Comment
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
                     {% endif %}
-                </p>
-                {% if 'user' in session %}
-                <form class="input-group mb-3" method="POST" action="/create-comment/{{post.id}}">
-                    <input type="text" id="text" name="text" class="form-control" placeholder="Comment something!" required>
-                    <button type="submit" class="btn btn-primary">Comment</button>
-                </form>
-                {% endif %}
+                </div>
             </div>
         </div>
-        <br>
     {% endfor %}
 </div>
 
 {% block footer %}
-<div align="center">
-    <a href="/create-post"><button type="button" class="btn btn-primary btn-lg">Create a post</button></a>
+<div class="text-center mt-4">
+    <a href="/create-post" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus"></i> Write a review
+    </a>
 </div>
 {% endblock %}
 {% endblock %}
+
+<style>
+    /* Star Rating Styles */
+    .star-rating-display {
+        font-size: 1.25rem;
+    }
+    .star-rating-display .stars {
+        display: inline-block;
+    }
+    .star-rating-display .star {
+        color: #ddd;
+        margin: 0 1px;
+    }
+    .star-rating-display .star.filled {
+        color: #ffc107;
+        text-shadow: 0 0 2px rgba(255, 193, 7, 0.5);
+    }
+    .rating-badge {
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .no-rating {
+        font-size: 0.9rem;
+    }
+    
+    /* Card Styles */
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card-header {
+        background-color: #f8f9fa;
+    }
+    
+    /* Comment Styles */
+    .comment-item {
+        padding: 5px 0;
+    }
+    .comment-form {
+        margin-top: 15px;
+    }
+</style>

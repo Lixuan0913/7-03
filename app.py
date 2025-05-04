@@ -43,10 +43,9 @@ class Users(db.Model):
         if self.email.endswith("@student.mmu.edu.my"):
            return "student"
         
-      
-
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    ratings = db.Column(db.Integer)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
@@ -79,7 +78,7 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
-      flash("You aren't logged in. Please login or signup to see the reviews.")
+      flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
       return render_template("home.html")
 
 @app.route("/database")
@@ -108,12 +107,12 @@ def signup():
           return redirect(url_for("signup"))
          
       if actual_password != confirm_password:
-          flash("Passwords does not match","Error")
+          flash("Passwords does not match","danger")
           return redirect(url_for("signup"))
          
       existing_user = Users.query.filter_by(username=username).first()
       if existing_user:
-         flash("User already exist", "Error")
+         flash("User already exist", "danger")
          return redirect(url_for("signup"))
       
       try:
@@ -161,16 +160,16 @@ def login():
             session["user_id"] = found_user.id
             return redirect(url_for("home"))
          else:
-            flash("Incorrect password","Error")
+            flash("Incorrect password","danger")
       else:
-         flash("Users does not exist","Error")
+         flash("Users does not exist","danger")
          return redirect(url_for("login"))
    return render_template("Login.html")
 
 @app.route("/logout")
 def logout():
    session.pop("user",None)
-   flash("You have been logout","sucess")
+   flash("You have been logout","success")
    return redirect(url_for("login"))
 
 
@@ -189,7 +188,7 @@ def delete_user(email):
 def create_post():
    if "user" not in session:
       flash("Please login to create a post", category="error")
-      return render_template("Login.html")
+      return redirect(url_for("login"))
 
    username=session.get("user")
    user = Users.query.filter_by(username=username).first()
@@ -198,12 +197,17 @@ def create_post():
       flash("User not found", category="error")
 
    if request.method == "POST":
-        text = request.form.get('text')
+        text = request.form.get('text', '').strip()  # Get and clean the text
+        ratings = request.form.get('ratings')
 
         if not text:
-            flash("Post cannot be empty", category='error')
+            flash("Post cannot be empty", category='danger')
+            return render_template("create_post.html")
+        if not ratings:
+            flash("Select a rating", category="danger")
+            return render_template("create_post.html", text=text)
         else:
-            post = Post(text=text, author=username)
+            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
             db.session.add(post)
             db.session.commit()
             flash('Post created!', category='success')
