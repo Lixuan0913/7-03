@@ -43,18 +43,30 @@ class Users(db.Model):
         if self.email.endswith("@student.mmu.edu.my"):
            return "student"
         
+post_tags = db.Table('post_tags',
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True)
+)
+
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ratings = db.Column(db.Integer)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
+    tags= db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String(200), nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    is_default = db.Column(db.Boolean, default=False)  # True for predefined tags
+
 
 @app.route("/")
 @app.route("/intro")
@@ -123,7 +135,7 @@ def signup():
             )
         db.session.add(user)
         db.session.commit()
-        flash("Signup successful!", "Success")
+        flash("Signup successful!", "success")
         return redirect(url_for("login"))
       
       except Exception as e:
@@ -158,6 +170,7 @@ def login():
          if check_password_hash(found_user.password,password):
             session["user"]=found_user.username
             session["user_id"] = found_user.id
+            flash("Login Successful","success")
             return redirect(url_for("home"))
          else:
             flash("Incorrect password","danger")
@@ -179,40 +192,56 @@ def delete_user(email):
       data = Users.query.filter_by(email=email).first()
       db.session.delete(data)
       db.session.commit()
-      flash("User deleted successfully.")
+      flash("User deleted successfully.","success")
     else:
         flash("User not found.", "error")
     return redirect(url_for("signup"))
+
+def create_tags():
+    default_tags=['Lecturer','Facilities','Food']
+    for tag_name in default_tags:
+        if not Tag.query.filter_by(name=tag_name).first():
+            tag=Tag(name=tag_name,is_default=True)
+            db.session.add(tag)
+    db.session.commit()
 
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
    if "user" not in session:
       flash("Please login to create a post", category="error")
       return redirect(url_for("login"))
+   
+   create_tags()
 
    username=session.get("user")
    user = Users.query.filter_by(username=username).first()
-
+   
+   default_tags = Tag.query.filter_by(is_default=True).all()
    if not user:
       flash("User not found", category="error")
 
    if request.method == "POST":
         text = request.form.get('text', '').strip()  # Get and clean the text
         ratings = request.form.get('ratings')
+        selected_default_tags = request.form.getlist('default_tags')
 
         if not text:
             flash("Post cannot be empty", category='danger')
-            return render_template("create_post.html")
+            return render_template("create_post.html",default_tags=default_tags)
         if not ratings:
             flash("Select a rating", category="danger")
-            return render_template("create_post.html", text=text)
+            return render_template("create_post.html", text=text,default_tags=default_tags)
         else:
             post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
             db.session.add(post)
+            for tag_id in selected_default_tags:
+                tag=Tag.query.get(tag_id)
+                if tag:
+                    post.tags.append(tag)
             db.session.commit()
             flash('Post created!', category='success')
             return redirect(url_for('home'))
-   return render_template("create_post.html")
+   return render_template("create_post.html",default_tags=default_tags)
 
 @app.route("/delete-post/<id>", methods=['GET','POST'])
 def delete_post(id):
@@ -269,6 +298,8 @@ def edit_post(id):
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)
 
+
+
 @app.route("/posts/<username>")
 def posts(username):
    user = Users.query.filter_by(username=username).first()
@@ -277,10 +308,13 @@ def posts(username):
       flash("No user with that username exists", category="error")
       return redirect(url_for("home"))
    
-   posts = Post.query.filter_by(author=user.username).all()
-   user=session.get("username")
+   posts =  Post.query.options(db.joinedload(Post.tags))\
+                     .filter_by(author=user.username)\
+                     .order_by(Post.date_posted.desc())\
+                     .all()
+   current_user=session.get("username")
 
-   return render_template("posts.html", user=user, posts=posts, username=username)
+   return render_template("posts.html", user=current_user, posts=posts, username=username)
 
 @app.route("/create-comment/<post_id>", methods=["POST"])
 def create_comment(post_id):
@@ -430,16 +464,6 @@ def profile(username):
     image_file = url_for('static', filename='profile/pics/' + profile_user.image_file)
     return render_template("Profile.html", user=profile_user, image_file=image_file,posts=user_posts)
 
-def save_picture(form_picture):
-    random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(form_picture.filename)
-    picture_fn = random_hex + f_ext
-    picture_path = os.path.join(app.root_path, 'static/profile/pics', picture_fn)
-
-    output_size = (125, 125)  # Optional resizing
-    i = Image.open(form_picture)
-    i.thumbnail(output_size)
-    i.save(picture_path)
 
     return picture_fn
 
@@ -477,7 +501,17 @@ def update(username):
 
         # Handle image upload
         if image_file and image_file.filename != '':
-            # Save to a temporary location to check the file type
+
+            # Delete old image if it's not the default
+            if current_user.image_file != 'default.jpg':
+              try:
+                old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
+                if os.path.exists(old_image_path):
+                   os.remove(old_image_path)
+              except Exception as e:
+                 flash(f"Could not delete old image: {str(e)}", "warning")
+
+
             filename = secure_filename(image_file.filename)
             file_ext = os.path.splitext(filename)[1].lower()  # Get the file extension
     
@@ -485,13 +519,21 @@ def update(username):
               flash("Only JPG or PNG are allowed","alert")
               return redirect(url_for("update", username=current_user.username))
 
-            else:
-              unique_filename = str(uuid.uuid1()) + '_' + filename
-              image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-              image_file.save(image_path)
-              current_user.image_file = unique_filename
+            unique_filename = str(uuid.uuid1()) + '_' + filename
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            image_file.save(image_path)
+            current_user.image_file = unique_filename
 
         if reset_picture:
+            if current_user.image_file != 'default.jpg':
+
+              try:
+                 old_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
+                 if os.path.exists(old_path):
+                    os.remove(old_path)
+              except Exception as e:
+                 flash(f"Couldn't delete old image: {str(e)}", "warning")
+
             current_user.image_file = 'default.jpg'
             flash("Profile picture reset to default", "success")
 

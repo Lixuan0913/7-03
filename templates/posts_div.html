@@ -22,6 +22,19 @@
                 {% endif %}
             </div>
             
+            <!--Tags display-->
+            {% if post.tags %}
+            <div class="tags-section">
+                <div>
+                    {% for tag in post.tags %}
+                    <span class="badge bg-primary">
+                        {{ tag.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
             <div class="card-body">
                 <!-- Star Rating Display -->
                 <div class="mb-3">
@@ -149,4 +162,23 @@
     .comment-form {
         margin-top: 15px;
     }
+
+    /* Tags Styles */
+  .tags-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0 0 30px;
+   transform: translateY(5px); /* Fallback */
+  }
+
+   .tags-section .badge {
+     font-size: 0.8rem;
+     font-weight: normal;
+     padding: 4px 8px;
+     border-radius: 12px;
+ }
+ .tags-section .badge:hover {
+     opacity: 0.8;
+ }
 </style>
