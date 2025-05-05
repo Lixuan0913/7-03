@@ -1,7 +1,8 @@
-from flask import Flask,render_template,request,session,flash,redirect,url_for
+from flask import Flask,render_template,request,session,flash,redirect,url_for,jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
+from datetime import datetime
 import re
 import secrets
 from PIL import Image
@@ -55,6 +56,14 @@ class Post(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     tags= db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+    
+    @property
+    def helpful_voters(self):
+        return [fb.user_id for fb in self.feedback if fb.is_helpful]
+    
+    @property
+    def not_helpful_voters(self):
+        return [fb.user_id for fb in self.feedback if not fb.is_helpful]
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -66,6 +75,16 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     is_default = db.Column(db.Boolean, default=False)  # True for predefined tags
+    
+class ReviewFeedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"))
+    is_helpful = db.Column(db.Boolean, nullable=False)  # True for helpful, False for not helpful
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
+
+    user = db.relationship('Users', backref='feedback')
+    post = db.relationship('Post', backref='feedback')
 
 
 @app.route("/")
@@ -572,6 +591,76 @@ def update(username):
 
     return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
 
+@app.route('/submit-feedback/<int:post_id>', methods=['POST'])
+def submit_feedback(post_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Please login to provide feedback'}), 401
+    
+    data = request.get_json()
+    if not data or 'is_helpful' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    user = Users.query.filter_by(username=session['user']).first()
+    post = Post.query.get(post_id)
+    
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+    
+    # Check if user already voted
+    existing_feedback = ReviewFeedback.query.filter_by(
+        post_id=post_id, 
+        user_id=user.id
+    ).first()
+    
+    if existing_feedback:
+        # Update existing feedback
+        existing_feedback.is_helpful = data['is_helpful']
+    else:
+        # Create new feedback
+        feedback = ReviewFeedback(
+            post_id=post_id,
+            user_id=user.id,
+            is_helpful=data['is_helpful']
+        )
+        db.session.add(feedback)
+    
+    db.session.commit()
+    
+    # Get updated counts
+    helpful_count = ReviewFeedback.query.filter_by(
+        post_id=post_id, 
+        is_helpful=True
+    ).count()
+    
+    not_helpful_count = ReviewFeedback.query.filter_by(
+        post_id=post_id, 
+        is_helpful=False
+    ).count()
+    
+    return jsonify({
+        'message': 'Feedback submitted',
+        'helpful_count': helpful_count,
+        'not_helpful_count': not_helpful_count,
+        'total_votes': helpful_count + not_helpful_count
+    })
+
+@app.route('/feedback-stats/<int:post_id>', methods=['GET'])
+def get_feedback_stats(post_id):
+    helpful_count = ReviewFeedback.query.filter_by(
+        post_id=post_id, 
+        is_helpful=True
+    ).count()
+    
+    not_helpful_count = ReviewFeedback.query.filter_by(
+        post_id=post_id, 
+        is_helpful=False
+    ).count()
+    
+    return jsonify({
+        'helpful_count': helpful_count,
+        'not_helpful_count': not_helpful_count,
+        'total_votes': helpful_count + not_helpful_count
+    })
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request

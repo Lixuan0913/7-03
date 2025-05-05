@@ -6,129 +6,150 @@
 
     <div id="posts">
         {% for post in posts %}
-            <div class="card border-dark mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card border-dark mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
+                         alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px; object-fit: cover;">
+                    <a href="/profile/{{post.author}}" class="text-decoration-none">{{post.author}}</a>
+                </div>
+                {% if session['user'] == post.author %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a href="/edit-post/{{post.id}}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a href="/delete-post/{{post.id}}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="card-body">
+                <!-- Tags display -->
+                {% if post.tags %}
+                <div class="mb-3">
+                    {% for tag in post.tags %}
+                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
+                        {{ tag.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <!-- Star Rating Display -->
+                <div class="mb-3">
+                    {% if post.ratings is not none %}
                     <div class="d-flex align-items-center">
-                        <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
-                             alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px; object-fit: cover;">
-                        <a href="/profile/{{post.author}}" class="text-decoration-none">{{post.author}}</a>
+                        <div class="star-rating-display me-2">
+                            {% for i in range(1, 6) %}
+                                <span class="star {% if i <= post.ratings %}filled{% endif %}">★</span>
+                            {% endfor %}
+                        </div>
+                        <span class="badge bg-warning text-dark">
+                            {{ post.ratings }}/5
+                        </span>
                     </div>
-                    {% if session['user'] == post.author %}
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a href="/edit-post/{{post.id}}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a href="/delete-post/{{post.id}}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete</a></li>
-                        </ul>
+                    {% else %}
+                    <div class="text-muted small">
+                        <i class="fas fa-star-half-alt me-1"></i> No rating provided
                     </div>
                     {% endif %}
                 </div>
                 
-                <div class="card-body">
-                    <!-- Tags display -->
-                    {% if post.tags %}
-                    <div class="mb-3">
-                        {% for tag in post.tags %}
-                        <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
-                            {{ tag.name }}
+                <!-- Post Content -->
+                <div class="card-text mb-3">{{ post.text }}</div>
+
+                <!-- Helpful Feedback Section -->
+                <div class="feedback-section mb-3 border-top pt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">
+                            Was this review helpful?
                         </span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Star Rating Display -->
-                    <div class="mb-3">
-                        {% if post.ratings is not none %}
-                        <div class="d-flex align-items-center">
-                            <div class="star-rating-display me-2">
-                                {% for i in range(1, 6) %}
-                                    <span class="star {% if i <= post.ratings %}filled{% endif %}">★</span>
-                                {% endfor %}
-                            </div>
-                            <span class="badge bg-warning text-dark">
-                                {{ post.ratings }}/5
-                            </span>
+                        <div class="feedback-buttons">
+                            <button class="btn btn-sm btn-outline-success feedback-btn {% if current_user.id in post.helpful_voters %}active{% endif %}" 
+                                    data-post-id="{{post.id}}" data-is-helpful="true">
+                                <i class="fas fa-thumbs-up"></i> 
+                                <span class="helpful-count">{{post.feedback|selectattr('is_helpful')|list|length}}</span>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger feedback-btn {% if current_user.id in post.not_helpful_voters %}active{% endif %}" 
+                                    data-post-id="{{post.id}}" data-is-helpful="false">
+                                <i class="fas fa-thumbs-down"></i> 
+                                <span class="not-helpful-count">{{post.feedback|rejectattr('is_helpful')|list|length}}</span>
+                            </button>
                         </div>
-                        {% else %}
-                        <div class="text-muted small">
-                            <i class="fas fa-star-half-alt me-1"></i> No rating provided
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Post Content -->
-                    <div class="card-text mb-3">{{ post.text }}</div>
-                    
-                    <!-- Comments Section -->
-                    <div class="comments-section border-top pt-3">
-                        <!-- Comments Toggle -->
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            {% if post.comments|length > 0 %}
-                            <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button" class="text-decoration-none">
-                                <span class="text-primary small">
-                                    <i class="fas fa-comments me-1"></i> View {{ post.comments|length }} comment(s)
-                                </span>
-                            </a>
-                            {% else %}
-                            <span class="text-muted small">
-                                <i class="far fa-comment me-1"></i> No comments yet
-                            </span>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Comments Collapse -->
-                        <div class="collapse" id="comments-{{post.id}}">
-                            <div class="mb-3">
-                                {% for comment in post.comments %}
-                                    <div class="comment-item mb-3">
-                                        <div class="d-flex justify-content-between">
-                                            <div class="d-flex align-items-start">
-                                                <img class="rounded-circle me-2" 
-                                                     src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" 
-                                                     alt="{{ comment.author }}'s profile image" 
-                                                     style="height: 30px; width: 30px; object-fit: cover;">
-                                                <div>
-                                                    <div>
-                                                        <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
-                                                    </div>
-                                                    <div class="small">{{comment.text}}</div>
-                                                </div>
-                                            </div>
-                                            {% if session['user'] == comment.author or session['user'] == post.author %}
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                                    <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
-                                                </ul>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% if not loop.last %}<hr class="my-2">{% endif %}
-                                {% endfor %}
-                            </div>
-                        </div>
-                        
-                        <!-- Comment Form -->
-                        {% if 'user' in session %}
-                        <form class="mt-3" method="POST" action="/create-comment/{{post.id}}">
-                            <div class="input-group">
-                                <input type="text" name="text" class="form-control form-control-sm" placeholder="Write a comment..." required>
-                                <button type="submit" class="btn btn-primary btn-sm">Comment
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </form>
-                        {% endif %}
                     </div>
                 </div>
+                
+                <!-- Comments Section -->
+                <div class="comments-section border-top pt-3">
+                    <!-- Comments Toggle -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        {% if post.comments|length > 0 %}
+                        <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button" class="text-decoration-none">
+                            <span class="text-primary small">
+                                <i class="fas fa-comments me-1"></i> View {{ post.comments|length }} comment(s)
+                            </span>
+                        </a>
+                        {% else %}
+                        <span class="text-muted small">
+                            <i class="far fa-comment me-1"></i> No comments yet
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Comments Collapse -->
+                    <div class="collapse" id="comments-{{post.id}}">
+                        <div class="mb-3">
+                            {% for comment in post.comments %}
+                            <div class="comment-item mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <div class="d-flex align-items-start">
+                                        <img class="rounded-circle me-2" 
+                                             src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" 
+                                             alt="{{ comment.author }}'s profile image" 
+                                             style="height: 30px; width: 30px; object-fit: cover;">
+                                        <div>
+                                            <div>
+                                                <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
+                                            </div>
+                                            <div class="small">{{comment.text}}</div>
+                                        </div>
+                                    </div>
+                                    {% if session['user'] == comment.author or session['user'] == post.author %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                            <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not loop.last %}<hr class="my-2">{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Comment Form -->
+                    {% if 'user' in session %}
+                    <form class="mt-3" method="POST" action="/create-comment/{{post.id}}">
+                        <div class="input-group">
+                            <input type="text" name="text" class="form-control form-control-sm" placeholder="Write a comment..." required>
+                            <button type="submit" class="btn btn-primary btn-sm">Comment
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
+        </div>
         {% endfor %}
     </div>
 
@@ -192,5 +213,72 @@
             margin-bottom: 0.5rem;
         }
     }
+
+    /* Feedback Section Styles */
+    .feedback-section {
+        font-size: 0.9rem;
+    }
+    .feedback-buttons .btn {
+        margin-left: 0.5rem;
+        padding: 0.25rem 0.75rem;
+    }
+    .feedback-buttons .btn.active {
+        background-color: var(--bs-primary);
+        color: white;
+    }
+    .feedback-buttons .btn-outline-success.active {
+        background-color: var(--bs-success);
+        border-color: var(--bs-success);
+    }
+    .feedback-buttons .btn-outline-danger.active {
+        background-color: var(--bs-danger);
+        border-color: var(--bs-danger);
+    }
 </style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle feedback button clicks
+        document.querySelectorAll('.feedback-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.dataset.postId;
+                const isHelpful = this.dataset.isHelpful === 'true';
+                
+                fetch(`/submit-feedback/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ is_helpful: isHelpful })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    // Update counts on the page
+                    const card = this.closest('.card');
+                    card.querySelector('.helpful-count').textContent = data.helpful_count;
+                    card.querySelector('.not-helpful-count').textContent = data.not_helpful_count;
+                    
+                    // Update button states
+                    const yesBtn = card.querySelector('[data-is-helpful="true"]');
+                    const noBtn = card.querySelector('[data-is-helpful="false"]');
+                    
+                    if (isHelpful) {
+                        yesBtn.classList.add('active');
+                        noBtn.classList.remove('active');
+                    } else {
+                        yesBtn.classList.remove('active');
+                        noBtn.classList.add('active');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+        });
+    });
+</script>
 {% endblock %}
