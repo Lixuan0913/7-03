@@ -58,9 +58,17 @@ class Post(db.Model):
     tags= db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
     
     @property
+    def helpful_count(self):
+        return len([fb for fb in self.feedback if fb.is_helpful])
+
+    @property
+    def not_helpful_count(self):
+        return len([fb for fb in self.feedback if not fb.is_helpful])
+
+    @property
     def helpful_voters(self):
         return [fb.user_id for fb in self.feedback if fb.is_helpful]
-    
+
     @property
     def not_helpful_voters(self):
         return [fb.user_id for fb in self.feedback if not fb.is_helpful]
@@ -79,12 +87,18 @@ class Tag(db.Model):
 class ReviewFeedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"))
-    is_helpful = db.Column(db.Boolean, nullable=False)  # True for helpful, False for not helpful
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"), nullable=False)
+    is_helpful = db.Column(db.Boolean, nullable=False)
     timestamp = db.Column(db.DateTime, server_default=db.func.now())
 
-    user = db.relationship('Users', backref='feedback')
-    post = db.relationship('Post', backref='feedback')
+    # Add a unique constraint to prevent duplicate feedback
+    __table_args__ = (
+        db.UniqueConstraint('post_id', 'user_id', name='unique_feedback'),
+    )
+
+    # Relationships
+    user = db.relationship('Users', backref=db.backref('feedbacks', lazy=True))
+    post = db.relationship('Post', backref=db.backref('feedbacks', lazy=True))
 
 
 @app.route("/")
@@ -596,70 +610,64 @@ def submit_feedback(post_id):
     if 'user' not in session:
         return jsonify({'error': 'Please login to provide feedback'}), 401
     
-    data = request.get_json()
-    if not data or 'is_helpful' not in data:
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    user = Users.query.filter_by(username=session['user']).first()
-    post = Post.query.get(post_id)
-    
-    if not post:
-        return jsonify({'error': 'Post not found'}), 404
-    
-    # Check if user already voted
-    existing_feedback = ReviewFeedback.query.filter_by(
-        post_id=post_id, 
-        user_id=user.id
-    ).first()
-    
-    if existing_feedback:
-        # Update existing feedback
-        existing_feedback.is_helpful = data['is_helpful']
-    else:
-        # Create new feedback
-        feedback = ReviewFeedback(
-            post_id=post_id,
-            user_id=user.id,
-            is_helpful=data['is_helpful']
-        )
-        db.session.add(feedback)
-    
-    db.session.commit()
-    
-    # Get updated counts
-    helpful_count = ReviewFeedback.query.filter_by(
-        post_id=post_id, 
-        is_helpful=True
-    ).count()
-    
-    not_helpful_count = ReviewFeedback.query.filter_by(
-        post_id=post_id, 
-        is_helpful=False
-    ).count()
-    
-    return jsonify({
-        'message': 'Feedback submitted',
-        'helpful_count': helpful_count,
-        'not_helpful_count': not_helpful_count,
-        'total_votes': helpful_count + not_helpful_count
-    })
+    try:
+        data = request.get_json()
+        if not data or 'is_helpful' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        user = Users.query.filter_by(username=session['user']).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        post = Post.query.get(post_id)
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+        
+        # Check for existing feedback
+        feedback = ReviewFeedback.query.filter_by(
+            post_id=post_id, 
+            user_id=user.id
+        ).first()
+        
+        try:
+            if feedback:
+                # Update existing feedback
+                feedback.is_helpful = bool(data['is_helpful'])
+            else:
+                # Create new feedback
+                feedback = ReviewFeedback(
+                    post_id=post_id,
+                    user_id=user.id,
+                    is_helpful=bool(data['is_helpful'])
+                )
+                db.session.add(feedback)
+            
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Feedback submitted',
+                'helpful_count': post.helpful_count,
+                'not_helpful_count': post.not_helpful_count,
+                'total_votes': len(post.feedbacks)
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Database error: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/feedback-stats/<int:post_id>', methods=['GET'])
 def get_feedback_stats(post_id):
-    helpful_count = ReviewFeedback.query.filter_by(
-        post_id=post_id, 
-        is_helpful=True
-    ).count()
-    
-    not_helpful_count = ReviewFeedback.query.filter_by(
-        post_id=post_id, 
-        is_helpful=False
-    ).count()
-    
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+        
     return jsonify({
-        'helpful_count': helpful_count,
-        'not_helpful_count': not_helpful_count,
-        'total_votes': helpful_count + not_helpful_count
+        'helpful_count': post.helpful_count,
+        'not_helpful_count': post.not_helpful_count,
+        'total_votes': len(post.feedbacks)
     })
 
 if __name__ == '__main__':  

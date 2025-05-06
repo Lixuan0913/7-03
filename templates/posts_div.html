@@ -70,14 +70,16 @@
                         </span>
                         <div class="feedback-buttons">
                             <button class="btn btn-sm btn-outline-success feedback-btn {% if current_user.id in post.helpful_voters %}active{% endif %}" 
-                                    data-post-id="{{post.id}}" data-is-helpful="true">
+                                    data-post-id="{{post.id}}" data-is-helpful="true"
+                                    {% if not current_user.is_authenticated %}disabled title="Login to vote"{% endif %}>
                                 <i class="fas fa-thumbs-up"></i> 
-                                <span class="helpful-count">{{post.feedback|selectattr('is_helpful')|list|length}}</span>
+                                <span class="helpful-count">{{ post.helpful_count }}</span>
                             </button>
                             <button class="btn btn-sm btn-outline-danger feedback-btn {% if current_user.id in post.not_helpful_voters %}active{% endif %}" 
-                                    data-post-id="{{post.id}}" data-is-helpful="false">
+                                    data-post-id="{{post.id}}" data-is-helpful="false"
+                                    {% if not current_user.is_authenticated %}disabled title="Login to vote"{% endif %}>
                                 <i class="fas fa-thumbs-down"></i> 
-                                <span class="not-helpful-count">{{post.feedback|rejectattr('is_helpful')|list|length}}</span>
+                                <span class="not-helpful-count">{{ post.not_helpful_count }}</span>
                             </button>
                         </div>
                     </div>
@@ -214,25 +216,22 @@
         }
     }
 
-    /* Feedback Section Styles */
-    .feedback-section {
-        font-size: 0.9rem;
-    }
-    .feedback-buttons .btn {
-        margin-left: 0.5rem;
-        padding: 0.25rem 0.75rem;
-    }
-    .feedback-buttons .btn.active {
-        background-color: var(--bs-primary);
-        color: white;
-    }
-    .feedback-buttons .btn-outline-success.active {
+    .feedback-btn.active.btn-outline-success {
         background-color: var(--bs-success);
+        color: white;
         border-color: var(--bs-success);
     }
-    .feedback-buttons .btn-outline-danger.active {
+    
+    .feedback-btn.active.btn-outline-danger {
         background-color: var(--bs-danger);
+        color: white;
         border-color: var(--bs-danger);
+    }
+    
+    /* Toast Notifications */
+    .toast {
+        z-index: 1100;
+        min-width: 250px;
     }
 </style>
 <script>
@@ -240,45 +239,84 @@
         // Handle feedback button clicks
         document.querySelectorAll('.feedback-btn').forEach(button => {
             button.addEventListener('click', function() {
-                const postId = this.dataset.postId;
-                const isHelpful = this.dataset.isHelpful === 'true';
-                
-                fetch(`/submit-feedback/${postId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ is_helpful: isHelpful })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
-                    
-                    // Update counts on the page
+                if (!this.disabled) {
+                    const postId = this.dataset.postId;
+                    const isHelpful = this.dataset.isHelpful === 'true';
                     const card = this.closest('.card');
-                    card.querySelector('.helpful-count').textContent = data.helpful_count;
-                    card.querySelector('.not-helpful-count').textContent = data.not_helpful_count;
                     
-                    // Update button states
-                    const yesBtn = card.querySelector('[data-is-helpful="true"]');
-                    const noBtn = card.querySelector('[data-is-helpful="false"]');
+                    // Show loading state
+                    const originalHTML = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                     
-                    if (isHelpful) {
-                        yesBtn.classList.add('active');
-                        noBtn.classList.remove('active');
-                    } else {
+                    fetch(`/submit-feedback/${postId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'  // Add CSRF protection
+                        },
+                        body: JSON.stringify({ is_helpful: isHelpful })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.error) {
+                            showToast(data.error, 'danger');
+                            return;
+                        }
+                        
+                        // Update counts
+                        card.querySelector('.helpful-count').textContent = data.helpful_count;
+                        card.querySelector('.not-helpful-count').textContent = data.not_helpful_count;
+                        
+                        // Update all feedback buttons for this post
+                        const yesBtn = card.querySelector('[data-is-helpful="true"]');
+                        const noBtn = card.querySelector('[data-is-helpful="false"]');
+                        
+                        // Reset all buttons first
                         yesBtn.classList.remove('active');
-                        noBtn.classList.add('active');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+                        noBtn.classList.remove('active');
+                        
+                        // Set active state for the clicked button
+                        if (isHelpful) {
+                            yesBtn.classList.add('active');
+                            showToast('Marked as helpful!', 'success');
+                        } else {
+                            noBtn.classList.add('active');
+                            showToast('Marked as not helpful', 'info');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showToast('Failed to submit feedback', 'danger');
+                    })
+                    .finally(() => {
+                        this.innerHTML = originalHTML;
+                    });
+                }
             });
         });
+        
+        function showToast(message, type) {
+            // Implement a toast notification system or use Bootstrap toasts
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            new bootstrap.Toast(toast).show();
+            setTimeout(() => toast.remove(), 3000);
+        }
     });
-</script>
+    </script>
 {% endblock %}
