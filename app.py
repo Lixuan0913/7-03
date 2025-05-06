@@ -3,8 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
 import re
-import secrets
-from PIL import Image
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
