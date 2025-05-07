@@ -1,10 +1,11 @@
-from flask import Flask,render_template,request,session,flash,redirect,url_for,jsonify
+
+from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
-from flask_wtf.csrf import CSRFProtect
-from datetime import datetime
 import re
+import secrets
+from PIL import Image
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
@@ -13,7 +14,6 @@ app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
-csrf = CSRFProtect(app)
 
 # Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
@@ -56,22 +56,6 @@ class Post(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     tags= db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
-    
-    @property
-    def helpful_count(self):
-        return len([fb for fb in self.feedbacks if fb.is_helpful])
-
-    @property
-    def not_helpful_count(self):
-        return len([fb for fb in self.feedbacks if not fb.is_helpful])
-    
-    @property
-    def helpful_voters(self):
-        return [fb.user_id for fb in self.feedbacks if fb.is_helpful]
-
-    @property
-    def not_helpful_voters(self):
-        return [fb.user_id for fb in self.feedbacks if not fb.is_helpful]
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,22 +67,6 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     is_default = db.Column(db.Boolean, default=False)  # True for predefined tags
-    
-class ReviewFeedback(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"), nullable=False)
-    is_helpful = db.Column(db.Boolean, nullable=False)
-    timestamp = db.Column(db.DateTime, server_default=db.func.now())
-
-    # Add a unique constraint to prevent duplicate feedback
-    __table_args__ = (
-        db.UniqueConstraint('post_id', 'user_id', name='unique_feedback'),
-    )
-
-    # Relationships
-    user = db.relationship('Users', backref=db.backref('feedbacks', lazy=True))
-    post = db.relationship('Post', backref=db.backref('feedbacks', lazy=True))
 
 
 @app.route("/")
@@ -312,16 +280,12 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="error")
     else:
-        try:
-            # First delete all comments associated with the post
-            Replies.query.filter_by(post_id=post.id).delete()
-            # Then delete the post
-            db.session.delete(post)
-            db.session.commit()
-            flash("Post and its comments are deleted", category="success")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error deleting post: {str(e)}", category="error")
+        # First delete all comments associated with the post
+        Replies.query.filter_by(post_id=post.id).delete()
+        # Then delete the post
+        db.session.delete(post)
+        db.session.commit()
+        flash("Post and its comments are deleted", category="success")
 
      # Check if the referrer is the profile page
     referrer = request.referrer
@@ -346,11 +310,13 @@ def edit_post(id):
 
     if request.method == 'POST':
         text = request.form.get('text')
+        ratings = request.form.get('ratings')
         
         if not text:
             flash("Post cannot be empty", category='error')
         else:
-            post.text = text  # Update the post content
+            post.text = text
+            post.ratings = int(ratings) if ratings else None
             db.session.commit()
             flash("Post updated successfully", category='success')
             return redirect(url_for('home'))
@@ -607,52 +573,6 @@ def update(username):
 
     return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
 
-@app.route('/submit-feedback/<int:post_id>', methods=['POST'])
-def submit_feedback(post_id):
-    if 'user' not in session:
-        flash('Please login to vote', 'danger')
-        return redirect(url_for('login'))
-
-    # Get form data
-    is_helpful = request.form.get('is_helpful') == 'true'
-    user = Users.query.filter_by(username=session['user']).first()
-
-    # Check for existing feedback
-    feedback = ReviewFeedback.query.filter_by(
-        post_id=post_id,
-        user_id=user.id
-    ).first()
-
-    try:
-        if feedback:
-            feedback.is_helpful = is_helpful  # Update existing
-        else:
-            feedback = ReviewFeedback(      # Create new
-                post_id=post_id,
-                user_id=user.id,
-                is_helpful=is_helpful
-            )
-            db.session.add(feedback)
-        
-        db.session.commit()
-        flash('Vote recorded!', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash('Vote failed', 'danger')
-
-    return redirect(request.referrer or url_for('home'))
-
-@app.route('/feedback-stats/<int:post_id>', methods=['GET'])
-def get_feedback_stats(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return jsonify({'error': 'Post not found'}), 404
-        
-    return jsonify({
-        'helpful_count': post.helpful_count,
-        'not_helpful_count': post.not_helpful_count,
-        'total_votes': len(post.feedbacks)
-    })
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
