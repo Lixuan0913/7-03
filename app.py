@@ -312,12 +312,16 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="error")
     else:
-        # First delete all comments associated with the post
-        Replies.query.filter_by(post_id=post.id).delete()
-        # Then delete the post
-        db.session.delete(post)
-        db.session.commit()
-        flash("Post and its comments are deleted", category="success")
+        try:
+            # First delete all comments associated with the post
+            Replies.query.filter_by(post_id=post.id).delete()
+            # Then delete the post
+            db.session.delete(post)
+            db.session.commit()
+            flash("Post and its comments are deleted", category="success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting post: {str(e)}", category="error")
 
      # Check if the referrer is the profile page
     referrer = request.referrer
@@ -342,13 +346,11 @@ def edit_post(id):
 
     if request.method == 'POST':
         text = request.form.get('text')
-        ratings = request.form.get('ratings')
         
         if not text:
             flash("Post cannot be empty", category='error')
         else:
-            post.text = text
-            post.ratings = int(ratings) if ratings else None
+            post.text = text  # Update the post content
             db.session.commit()
             flash("Post updated successfully", category='success')
             return redirect(url_for('home'))
