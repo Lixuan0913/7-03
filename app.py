@@ -2,10 +2,9 @@ from flask import Flask,render_template,request,session,flash,redirect,url_for,j
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
+from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
 import re
-import secrets
-from PIL import Image
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
@@ -14,6 +13,7 @@ app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
+csrf = CSRFProtect(app)
 
 # Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
@@ -59,19 +59,19 @@ class Post(db.Model):
     
     @property
     def helpful_count(self):
-        return len([fb for fb in self.feedback if fb.is_helpful])
+        return len([fb for fb in self.feedbacks if fb.is_helpful])
 
     @property
     def not_helpful_count(self):
-        return len([fb for fb in self.feedback if not fb.is_helpful])
-
+        return len([fb for fb in self.feedbacks if not fb.is_helpful])
+    
     @property
     def helpful_voters(self):
-        return [fb.user_id for fb in self.feedback if fb.is_helpful]
+        return [fb.user_id for fb in self.feedbacks if fb.is_helpful]
 
     @property
     def not_helpful_voters(self):
-        return [fb.user_id for fb in self.feedback if not fb.is_helpful]
+        return [fb.user_id for fb in self.feedbacks if not fb.is_helpful]
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -608,55 +608,37 @@ def update(username):
 @app.route('/submit-feedback/<int:post_id>', methods=['POST'])
 def submit_feedback(post_id):
     if 'user' not in session:
-        return jsonify({'error': 'Please login to provide feedback'}), 401
-    
+        flash('Please login to vote', 'danger')
+        return redirect(url_for('login'))
+
+    # Get form data
+    is_helpful = request.form.get('is_helpful') == 'true'
+    user = Users.query.filter_by(username=session['user']).first()
+
+    # Check for existing feedback
+    feedback = ReviewFeedback.query.filter_by(
+        post_id=post_id,
+        user_id=user.id
+    ).first()
+
     try:
-        data = request.get_json()
-        if not data or 'is_helpful' not in data:
-            return jsonify({'error': 'Missing required fields'}), 400
+        if feedback:
+            feedback.is_helpful = is_helpful  # Update existing
+        else:
+            feedback = ReviewFeedback(      # Create new
+                post_id=post_id,
+                user_id=user.id,
+                is_helpful=is_helpful
+            )
+            db.session.add(feedback)
         
-        user = Users.query.filter_by(username=session['user']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        post = Post.query.get(post_id)
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-        
-        # Check for existing feedback
-        feedback = ReviewFeedback.query.filter_by(
-            post_id=post_id, 
-            user_id=user.id
-        ).first()
-        
-        try:
-            if feedback:
-                # Update existing feedback
-                feedback.is_helpful = bool(data['is_helpful'])
-            else:
-                # Create new feedback
-                feedback = ReviewFeedback(
-                    post_id=post_id,
-                    user_id=user.id,
-                    is_helpful=bool(data['is_helpful'])
-                )
-                db.session.add(feedback)
-            
-            db.session.commit()
-            
-            return jsonify({
-                'message': 'Feedback submitted',
-                'helpful_count': post.helpful_count,
-                'not_helpful_count': post.not_helpful_count,
-                'total_votes': len(post.feedbacks)
-            })
-            
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'error': f'Database error: {str(e)}'}), 500
-            
+        db.session.commit()
+        flash('Vote recorded!', 'success')
     except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        db.session.rollback()
+        flash('Vote failed', 'danger')
+
+    return redirect(request.referrer or url_for('home'))
 
 @app.route('/feedback-stats/<int:post_id>', methods=['GET'])
 def get_feedback_stats(post_id):
