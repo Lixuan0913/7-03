@@ -1,7 +1,10 @@
+
 from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
+from flask_migrate import Migrate
+from datetime import datetime
 import re
 from werkzeug.utils import secure_filename
 import uuid as uuid
@@ -17,6 +20,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -40,6 +44,22 @@ class Users(db.Model):
            return "lecturer"
         if self.email.endswith("@student.mmu.edu.my"):
            return "student"
+       
+    def has_helpful_feedback(self, post_id):
+        feedback = Feedback.query.filter_by(
+            user_id=self.id,
+            post_id=post_id,
+            is_helpful=True
+        ).first()
+        return feedback is not None
+    
+    def has_not_helpful_feedback(self, post_id):
+        feedback = Feedback.query.filter_by(
+            user_id=self.id,
+            post_id=post_id,
+            is_helpful=False
+        ).first()
+        return feedback is not None
         
 post_tags = db.Table('post_tags',
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
@@ -51,8 +71,11 @@ class Post(db.Model):
     ratings = db.Column(db.Integer)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
-    tags= db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+    helpful_count = db.Column(db.Integer, default=0) 
+    not_helpful_count = db.Column(db.Integer, default=0)    
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,7 +88,16 @@ class Tag(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     is_default = db.Column(db.Boolean, default=False)  # True for predefined tags
 
-
+class Feedback(db.Model):  # Add this new class
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    is_helpful = db.Column(db.Boolean, nullable=False)
+    
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
+    )
+    
 @app.route("/")
 @app.route("/intro")
 def index():
@@ -570,6 +602,58 @@ def update(username):
 
     return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
 
+@app.route("/feedback/<int:post_id>/<action>")
+def feedback(post_id, action):
+    if "user" not in session:
+        flash("Please login to provide feedback", "danger")
+        return redirect(url_for('login'))
+    
+    user = Users.query.filter_by(username=session["user"]).first()
+    post = Post.query.get_or_404(post_id)
+    
+    # Check if user already gave feedback
+    existing_feedback = Feedback.query.filter_by(
+        user_id=user.id,
+        post_id=post_id
+    ).first()
+    
+    if action == "helpful":
+        if existing_feedback:
+            if existing_feedback.is_helpful:
+                # User is removing their helpful vote
+                post.helpful_count -= 1
+                db.session.delete(existing_feedback)
+            else:
+                # User is changing from not helpful to helpful
+                post.not_helpful_count -= 1
+                post.helpful_count += 1
+                existing_feedback.is_helpful = True
+        else:
+            # New helpful vote
+            post.helpful_count += 1
+            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=True)
+            db.session.add(feedback)
+    
+    elif action == "not-helpful":
+        if existing_feedback:
+            if not existing_feedback.is_helpful:
+                # User is removing their not helpful vote
+                post.not_helpful_count -= 1
+                db.session.delete(existing_feedback)
+            else:
+                # User is changing from helpful to not helpful
+                post.helpful_count -= 1
+                post.not_helpful_count += 1
+                existing_feedback.is_helpful = False
+        else:
+            # New not helpful vote
+            post.not_helpful_count += 1
+            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=False)
+            db.session.add(feedback)
+    
+    db.session.commit()
+    
+    return redirect(request.referrer or url_for('home'))
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
