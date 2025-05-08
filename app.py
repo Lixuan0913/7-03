@@ -110,6 +110,7 @@ def index():
       user = Users.query.filter_by(username=username).first()
       return render_template("home.html", user=user, posts=posts)
    else:
+      flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
       return render_template("intro.html")
 
 @app.route("/home")
@@ -122,7 +123,6 @@ def home():
       return render_template("home.html", user=user, posts=posts)
       
    else:
-      flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
       return render_template("home.html")
 
 @app.route("/database")
@@ -172,7 +172,7 @@ def signup():
       
       except Exception as e:
          db.session.rollback()
-         flash("Error while saving to database: " + str(e), "Error")
+         flash("Error while saving to database: " + str(e), "danger")
          return redirect(url_for("signup"))
 
     
@@ -226,7 +226,7 @@ def delete_user(email):
       db.session.commit()
       flash("User deleted successfully.","success")
     else:
-        flash("User not found.", "error")
+        flash("User not found.", "danger")
     return redirect(url_for("signup"))
 
 def create_tags():
@@ -245,7 +245,7 @@ def create_tags():
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
    if "user" not in session:
-      flash("Please login to create a post", category="error")
+      flash("Please login to create a post", category="danger")
       return redirect(url_for("login"))
    
    create_tags()
@@ -254,7 +254,7 @@ def create_post():
    user = Users.query.filter_by(username=username).first()
 
    if not user:
-      flash("User not found", category="error")
+      flash("User not found", category="danger")
     
    default_tags = Tag.query.filter_by(is_default=True).all()
 
@@ -307,9 +307,9 @@ def delete_post(id):
     post = Post.query.filter_by(id=id).first()
 
     if not post:
-        flash("Post doesn't exist", category="error")
+        flash("Post doesn't exist", category="danger")
     elif session.get("user") != post.author:
-        flash("You don't have permission to delete this post.", category="error")
+        flash("You don't have permission to delete this post.", category="danger")
     else:
         # First delete all comments associated with the post
         Replies.query.filter_by(post_id=post.id).delete()
@@ -332,11 +332,11 @@ def edit_post(id):
     post = Post.query.filter_by(id=id).first()
 
     if not post:
-        flash("Post doesn't exist", category="error")
+        flash("Post doesn't exist", category="danger")
         return redirect(url_for('home'))
     
     if session.get("user") != post.author:
-        flash("You don't have permission to edit this post.", category="error")
+        flash("You don't have permission to edit this post.", category="danger")
         return redirect(url_for('home'))
 
     if request.method == 'POST':
@@ -344,7 +344,7 @@ def edit_post(id):
         ratings = request.form.get('ratings')
         
         if not text:
-            flash("Post cannot be empty", category='error')
+            flash("Post cannot be empty", category='danger')
         else:
             post.text = text
             post.ratings = int(ratings) if ratings else None
@@ -362,7 +362,7 @@ def posts(username):
    user = Users.query.filter_by(username=username).first()
 
    if not user:
-      flash("No user with that username exists", category="error")
+      flash("No user with that username exists", category="danger")
       return redirect(url_for("home"))
    
    posts =  Post.query.options(db.joinedload(Post.tags))\
@@ -380,16 +380,16 @@ def create_comment(post_id):
    user = Users.query.filter_by(username=username).first()
 
    if not text :
-      flash("Comment cannot be empty", category="error")
+      flash("Comment cannot be empty", category="danger")
    else:
       post = Post.query.filter_by(id=post_id)
       if post:
          comment = Replies(text=text, author=username, post_id=post_id)
          db.session.add(comment)
          db.session.commit()
-         flash("Comment posted")
+         flash("Comment posted", category="success")
       else:
-         flash("Post doesn't exist", category="error")
+         flash("Post doesn't exist", category="danger")
    
    return redirect(url_for('home'))
 
@@ -400,9 +400,9 @@ def delete_comment(comment_id):
    comment = Replies.query.filter_by(id=comment_id).first()
 
    if not comment:
-      flash("Comment doesn't exist", category="error")
+      flash("Comment doesn't exist", category="danger")
    elif session.get("user") != comment.author and session.get("user") != comment.post.author:
-      flash("You don't have permission to delete this comment", category="error")
+      flash("You don't have permission to delete this comment", category="danger")
    else:
       db.session.delete(comment)
       db.session.commit()
@@ -420,18 +420,18 @@ def edit_comment(comment_id):
    comment = Replies.query.filter_by(id=comment_id).first()
 
    if not comment:
-        flash("Post doesn't exist", category="error")
+        flash("Post doesn't exist", category="danger")
         return redirect(url_for('home'))
     
    if session.get("user") != comment.author:
-        flash("You don't have permission to edit this post.", category="error")
+        flash("You don't have permission to edit this post.", category="danger")
         return redirect(url_for('home'))
 
    if request.method == 'POST':
         text = request.form.get('text')
         
         if not text:
-            flash("Post cannot be empty", category='error')
+            flash("Post cannot be empty", category='danger')
         else:
             comment.text = text  # Update the post content
             db.session.commit()
