@@ -69,3 +69,10 @@ database.sqlite3
 __pycache__
 
 static
+
+#migration
+alembic.ini
+env.py
+README
+script.py.mako
+1c2ae3f6e3e7_database.py
