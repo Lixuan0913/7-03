@@ -16,7 +16,6 @@
                        <h2 class="email mb-4">Email: {{user.email}}</h2>
                        {% if current_user and current_user.username == user.username %}
                        <div class="d-flex flex-column align-items-start gap-2 mt-3">
-                           <a href="{{ url_for('posts', username=user.username) }}" class="btn btn-secondary">Your Posts</a>
                            <a href="{{ url_for('update', username=user.username) }}" class="btn btn-primary">Update Profile</a>
                        </div>
                        {% endif %}
