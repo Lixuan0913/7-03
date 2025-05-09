@@ -13,7 +13,10 @@ import os
 app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
+POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
+app.config['POST_IMAGE_FOLDER']=POST_IMAGE_FOLDER
+os.makedirs(POST_IMAGE_FOLDER, exist_ok=True)
 
 # Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
@@ -66,6 +69,11 @@ post_tags = db.Table('post_tags',
     db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True)
 )
 
+class Image(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(100), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"))
+
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ratings = db.Column(db.Integer)
@@ -74,6 +82,7 @@ class Post(db.Model):
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     tags = db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+    images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
 
@@ -98,18 +107,8 @@ class Feedback(db.Model):  # Add this new class
         db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
     )
     
-@app.route("/")
-@app.route("/intro")
-def index():
-   
-   if "user" in session:
-      posts = Post.query.all()
-      username = session["user"]
-      user = Users.query.filter_by(username=username).first()
-      return render_template("home.html", user=user, posts=posts)
-   else:
-      return render_template("intro.html")
 
+@app.route("/")
 @app.route("/home")
 def home():
 
@@ -121,7 +120,7 @@ def home():
       
    else:
       flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
-      return render_template("home.html")
+      return render_template("intro.html")
 
 @app.route("/database")
 def database():
@@ -261,6 +260,7 @@ def create_post():
         ratings = request.form.get('ratings')
         selected_default_tags = request.form.getlist('default_tags')
         custom_tags = request.form.get('custom_tags',' ').strip()
+        upload_files = request.files.getlist('picture')
 
         if not text:
             flash("Post cannot be empty", category='danger')
@@ -271,6 +271,8 @@ def create_post():
         else:
             post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
             db.session.add(post)
+            db.session.flush()  # <--- Flush here to get post.id
+
 
             #Process default tags
             for tag_id in selected_default_tags:
@@ -294,8 +296,24 @@ def create_post():
                     if tag not in post.tags: # prevent duplicate
                       post.tags.append(tag)
 
-            db.session.commit()
+            for file in upload_files:
+                filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(filename)[1].lower()
+                if file_ext in ['.jpg', '.jpeg', '.png']:
+                    # Generate a unique filename to prevent collisions
+                    filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                    file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+                    
+                    try:
+                        file.save(file_path)
+                        # Create image record in database
+                        image = Image(filename=filename, post_id=post.id)
+                        db.session.add(image)
+                    except Exception as e:
+                        flash(f"Error saving image: {str(e)}", category='danger')
+                        continue
 
+            db.session.commit()
             flash('Post created!', category='success')
             return redirect(url_for('home'))
    return render_template("create_post.html",default_tags=default_tags)
@@ -309,6 +327,14 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="error")
     else:
+        for image in post.images:
+            try:
+                image_path = os.path.join(POST_IMAGE_FOLDER, image.filename)
+                if os.path.exists(image_path):
+                    os.remove(image_path)  # Delete the file
+            except Exception as e:
+                flash(f"Failed to delete image {image.filename}: {e}")
+
         # First delete all comments associated with the post
         Replies.query.filter_by(post_id=post.id).delete()
         # Then delete the post
@@ -363,13 +389,28 @@ def posts(username):
       flash("No user with that username exists", category="error")
       return redirect(url_for("home"))
    
-   posts =  Post.query.options(db.joinedload(Post.tags))\
-                     .filter_by(author=user.username)\
-                     .order_by(Post.date_posted.desc())\
-                     .all()
+   posts = Post.query.options(db.joinedload(Post.images), db.joinedload(Post.tags))\
+        .filter_by(author=user.username)\
+        .order_by(Post.date_posted.desc())\
+        .all()
+   
    current_user=session.get("username")
 
    return render_template("posts.html", user=current_user, posts=posts, username=username)
+
+@app.route("/view_post/<int:post_id>")
+def view_post(post_id):
+    post = Post.query.options(
+        db.joinedload(Post.images),
+        db.joinedload(Post.tags),
+        db.joinedload(Post.comments).joinedload(Replies.users)
+    ).filter_by(id=post_id).first()
+
+    if not post:
+        flash("Post not found", category="error")
+        return redirect(url_for("home"))
+    
+    return render_template("view_post.html", post=post)
 
 @app.route("/create-comment/<post_id>", methods=["POST"])
 def create_comment(post_id):
@@ -518,9 +559,6 @@ def profile(username):
    
     image_file = url_for('static', filename='profile/pics/' + profile_user.image_file)
     return render_template("Profile.html", user=profile_user, image_file=image_file,posts=user_posts)
-
-
-    return picture_fn
 
 @app.route("/update/<username>", methods=["GET", "POST"])
 def update(username):

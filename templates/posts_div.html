@@ -2,15 +2,14 @@
 {% block title %}Posts{% endblock %}
 {% block content %}
 <div class="container">
-    <h1 class="text-center my-4">{% block header %}Reviews{% endblock %}</h1>
-
+    <h1 class="text-center mt-4">{% block header %}Reviews{% endblock %}</h1>
     <div id="posts">
         {% for post in posts %}
-            <div class="card border-dark mb-4">
+            <div class="card border-dark mb-7 post-separator" >
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
                         <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
-                             alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px; object-fit: cover;">
+                             alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px;">
                         <a href="/profile/{{post.author}}" class="text-decoration-none">{{post.author}}</a>
                     </div>
                     {% if session['user'] == post.author %}
@@ -27,6 +26,7 @@
                     {% endif %}
                 </div>
                 
+                <a class="text-decoration-none text-dark"  href="{{ url_for('view_post', post_id=post.id) }}">
                 <div class="card-body">
                     <!-- Tags display -->
                     {% if post.tags %}
@@ -57,10 +57,40 @@
                             <i class="fas fa-star-half-alt me-1"></i> No rating provided
                         </div>
                         {% endif %}
-                    </div>
+                    
                     
                     <!-- Post Content -->
                     <div class="card-text mb-3">{{ post.text }}</div>
+                     
+                    <!--Post Image-->
+                    
+                    {% if post.images %}
+                      <div class="image-gallery">
+                     {% for image in post.images %}
+                     <a href="#image-{{ image.id }}">
+                      <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                     class="zoomable-image-css"
+                     style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                      </a>
+                       <div id="image-{{ image.id }}" class="enlarged-image-container">
+                        <a href="#" class="close-button-css">&times;</a>
+                    <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                         class="enlarged-image">
+                    <div class="navigation-buttons">
+                     {% if post.images|length > 1 %}
+                         {% if not loop.first %}
+                          <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button btn btn-primary">❮ Previous</a>
+                          {% endif %}
+                           {% if not loop.last %}
+                          <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button btn btn-primary">Next ❯</a>
+                          {% endif %}
+                    {% endif %}
+                   </div>
+                         
+                     </div>
+                     {% endfor %}
+                     </div>
+                      {% endif %}
                     
                     <!-- Feedback Section -->
                     <div class="feedback-section mb-3">
@@ -76,6 +106,8 @@
                             </a>
                         </div>
                     </div>
+                </div>
+                </a>
 
                     <!-- Comments Section -->
                     <div class="comments-section border-top pt-3">
@@ -93,6 +125,7 @@
                             </span>
                             {% endif %}
                         </div>
+                    
                         
                         <!-- Comments Collapse -->
                         <div class="collapse" id="comments-{{post.id}}">
@@ -125,7 +158,6 @@
                                             {% endif %}
                                         </div>
                                     </div>
-                                    {% if not loop.last %}<hr class="my-2">{% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -142,82 +174,18 @@
                         </form>
                         {% endif %}
                     </div>
-                </div>
             </div>
-        {% endfor %}
     </div>
+    {% endfor %}
+</div>
 
-    {% block footer %}
+{% block footer %}
     <div class="text-center my-4">
         <a href="/create-post" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Write a review
         </a>
     </div>
-    {% endblock %}
-</div>
-
-<style>
-    /* Star Rating Styles */
-    .star-rating-display {
-        font-size: 1.25rem;
-        line-height: 1;
-    }
-    .star-rating-display .star {
-        color: #e0e0e0;
-        margin-right: 2px;
-    }
-    .star-rating-display .star.filled {
-        color: #ffc107;
-    }
-    
-    /* Card Styles */
-    .card {
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .card-header {
-        background-color: #f8f9fa;
-        padding: 0.75rem 1.25rem;
-    }
-    
-    /* Comment Styles */
-    .comment-item {
-        font-size: 0.9rem;
-    }
-    .comment-item .dropdown-toggle::after {
-        display: none;
-    }
-    
-    /* Tags Styles */
-    .badge {
-        font-weight: 500;
-        padding: 0.35em 0.65em;
-        margin-right: 0.5em;
-        margin-bottom: 0.5em;
-    }
-    
-    /* Feedback Styles */
-    .feedback-section {
-        margin-top: 1rem;
-        padding-top: 0.5rem;
-        border-top: 1px solid #eee;
-    }
-    
-    .feedback-section .btn {
-        min-width: 60px;
-        text-decoration: none;
-    }
-    
-    /* Responsive adjustments */
-    @media (max-width: 576px) {
-        .card-header {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        .card-header > div:first-child {
-            margin-bottom: 0.5rem;
-        }
-    }
-</style>
 {% endblock %}
+{% endblock %}
+
+

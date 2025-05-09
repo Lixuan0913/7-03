@@ -9,23 +9,42 @@
    {% extends "base.html" %}
    {% block content %}
 
-   <div class="Signup">
-   <form action="/signup" method="post">
+   <div class="container mt-5">
+      <div class="mb-3 signup">
+       <form action="/signup" method="post">
+         <h1 class="text-center mb-4">SIGNUP</h1>
+         <div class="row mb-3">
+           <label for="email" class="col-md-4 col-form-label text-center">Email:</label>
+           <div class="col-md-6">
+                <input type="email" name="email" class="form-control" placeholder="Enter MMU email" required>
+           </div>
+         </div>
 
-      <label for="email">Email:</label>
-      <input type="email" name="email" placeholder="Enter MMU email" required>
+         <div class="row mb-3">
+        <label for="username" class="col-md-4 col-form-label text-center">Username:</label>
+        <div class="col-md-6">
+        <input type="text" name="username" class="form-control" placeholder="Username" required>
+      </div>
+      </div>
 
-      <label for="username">Username:</label>
-      <input type="text" name="username" placeholder="Username" required>
-
-      
-      <label for="password">Password:</label>
-      <input type="password" name="password" placeholder="Please enter password" minlength="8" maxlength="12" required >
-
-      <label for="confirm-password">Confirm Password:</label>
-      <input type="password" name="confirm-password" placeholder="Please enter password again"><br>
-
+      <div class="row mb-3">
+        <label for="password" class="col-md-4 col-form-label text-center">Password:</label>
+        <div class="col-md-6">
+      <input type="password" name="password" class="form-control" placeholder="Please enter password" minlength="8" maxlength="12" required >
+   </div>
+   </div>
+  
+   <div class="row mb-3">
+      <label for="confirm-password" class="col-md-4 col-form-label text-center">Confirm Password:</label>
+      <div class="col-md-6">
+      <input type="password" name="confirm-password" class="form-control" placeholder="Please enter password again"><br>
+   </div>
+</div>
+    <div class="row mb-3">
+   <div class="col-md-12 text-center">
       <button type="submit" name="submit">Sign Up</button>
+      </div>
+      </div>
    </form>
 
    </div>
