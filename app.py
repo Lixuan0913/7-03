@@ -6,10 +6,7 @@ from webforms import SearchForm
 from flask_migrate import Migrate
 from datetime import datetime
 import re
-<<<<<<<<< Temporary merge branch 1
-=========
 from PIL import Image
->>>>>>>>> Temporary merge branch 2
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
@@ -110,8 +107,42 @@ class Feedback(db.Model):  # Add this new class
     __table_args__ = (
         db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
     )
-    
 
+# Simple profanity filter
+class ProfanityFilter:
+    def __init__(self):
+        # List of inappropriate words (customize this list)
+        self.banned_words = [
+            'shit', 'fuck', 'asshole', 'bitch', 'cunt',
+            'dick', 'pussy', 'bastard', 'whore', 'slut',
+            'fag', 'nigger', 'retard', 'damn', 'hell',
+            'suck', 'nigga', 'fucking', 'ass'
+        ]
+        
+        # Create variations with common misspellings
+        self.word_variations = []
+        for word in self.banned_words:
+            self.word_variations.append(word)
+            self.word_variations.append(word.replace('i', '1'))
+            self.word_variations.append(word.replace('i', '!'))
+            self.word_variations.append(word.replace('e', '3'))
+            self.word_variations.append(word.replace('a', '4'))
+            self.word_variations.append(word.replace('o', '0'))
+            self.word_variations.append(word.replace('u', '0'))
+            self.word_variations.append(word + 'head')
+            self.word_variations.append(word + 'hole')
+    
+    def contains_profanity(self, text):
+        """Check if text contains any banned words"""
+        if not text:
+            return False
+            
+        text_lower = text.lower()
+        return any(bad_word in text_lower for bad_word in self.word_variations)
+    
+# Create a global instance
+profanity_filter = ProfanityFilter()
+    
 @app.route("/")
 @app.route("/intro")
 def index():
@@ -256,21 +287,21 @@ def create_tags():
 
 @app.route("/create-post", methods=['GET', 'POST'])
 def create_post():
-   if "user" not in session:
+    if "user" not in session:
       flash("Please login to create a post", category="danger")
       return redirect(url_for("login"))
    
-   create_tags()
+    create_tags()
 
-   username=session.get("user")
-   user = Users.query.filter_by(username=username).first()
+    username=session.get("user")
+    user = Users.query.filter_by(username=username).first()
 
-   if not user:
-      flash("User not found", category="danger")
+    if not user:
+        flash("User not found", category="danger")
     
-   default_tags = Tag.query.filter_by(is_default=True).all()
+    default_tags = Tag.query.filter_by(is_default=True).all()
 
-   if request.method == "POST":
+    if request.method == "POST":
         text = request.form.get('text', '').strip()  # Get and clean the text
         ratings = request.form.get('ratings')
         selected_default_tags = request.form.getlist('default_tags')
@@ -284,54 +315,56 @@ def create_post():
             flash("Select a rating", category="danger")
             return render_template("create_post.html", text=text,default_tags=default_tags)
         else:
-            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
-            db.session.add(post)
-            db.session.flush()  # <--- Flush here to get post.id
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            else:
+                post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
+                db.session.add(post)
+                db.session.flush()  # <--- Flush here to get post.id
 
+                #Process default tags
+                for tag_id in selected_default_tags:
+                    tag=Tag.query.get(tag_id)
+                    if tag:
+                        post.tags.append(tag)
 
-            #Process default tags
-            for tag_id in selected_default_tags:
-                tag=Tag.query.get(tag_id)
-                if tag:
-                    post.tags.append(tag)
-
-            # Process custom tags
-            if custom_tags:
-                  
-                for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
-
-                    # Check if tag exists (case-insensitive)
-                    tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
-
-                    if not tag:  # Create new tag if it doesn't exist
-                      tag = Tag(name=tag_name, is_default=False)
-                      db.session.add(tag)
-                      db.session.flush()
-
-                    if tag not in post.tags: # prevent duplicate
-                      post.tags.append(tag)
-
-            for file in upload_files:
-                filename = secure_filename(file.filename)
-                file_ext = os.path.splitext(filename)[1].lower()
-                if file_ext in ['.jpg', '.jpeg', '.png']:
-                    # Generate a unique filename to prevent collisions
-                    filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
-                    file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+                # Process custom tags
+                if custom_tags:
                     
-                    try:
-                        file.save(file_path)
-                        # Create image record in database
-                        image = Image(filename=filename, post_id=post.id)
-                        db.session.add(image)
-                    except Exception as e:
-                        flash(f"Error saving image: {str(e)}", category='danger')
-                        continue
+                    for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
 
-            db.session.commit()
-            flash('Post created!', category='success')
-            return redirect(url_for('home'))
-   return render_template("create_post.html",default_tags=default_tags)
+                        # Check if tag exists (case-insensitive)
+                        tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
+
+                        if not tag:  # Create new tag if it doesn't exist
+                            tag = Tag(name=tag_name, is_default=False)
+                            db.session.add(tag)
+                            db.session.flush()
+
+                        if tag not in post.tags: # prevent duplicate
+                            post.tags.append(tag)
+
+                for file in upload_files:
+                    filename = secure_filename(file.filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Generate a unique filename to prevent collisions
+                        filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                        file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+                        
+                        try:
+                            file.save(file_path)
+                            # Create image record in database
+                            image = Image(filename=filename, post_id=post.id)
+                            db.session.add(image)
+                        except Exception as e:
+                            flash(f"Error saving image: {str(e)}", category='danger')
+                            continue
+
+                db.session.commit()
+                flash('Post created!', category='success')
+                return redirect(url_for('home'))
+    return render_template("create_post.html",default_tags=default_tags)
 
 @app.route("/delete-post/<id>", methods=['GET','POST'])
 def delete_post(id):
@@ -385,12 +418,15 @@ def edit_post(id):
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
-            post.text = text
-            post.ratings = int(ratings) if ratings else None
-            db.session.commit()
-            flash("Post updated successfully", category='success')
-            return redirect(url_for('home'))
-    
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            else:
+                post.text = text
+                post.ratings = int(ratings) if ratings else None
+                db.session.commit()
+                flash("Post updated successfully", category='success')
+                return redirect(url_for('home'))
+        
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)
 
@@ -436,14 +472,17 @@ def create_comment(post_id):
    if not text :
       flash("Comment cannot be empty", category="danger")
    else:
-      post = Post.query.filter_by(id=post_id)
-      if post:
-         comment = Replies(text=text, author=username, post_id=post_id)
-         db.session.add(comment)
-         db.session.commit()
-         flash("Comment posted", category="success")
+      if profanity_filter.contains_profanity(text):
+            flash("Your comment contains inappropriate language and cannot be posted", category="danger")
       else:
-         flash("Post doesn't exist", category="danger")
+        post = Post.query.filter_by(id=post_id)
+        if post:
+            comment = Replies(text=text, author=username, post_id=post_id)
+            db.session.add(comment)
+            db.session.commit()
+            flash("Comment posted", category="success")
+        else:
+            flash("Post doesn't exist", category="danger")
    
    return redirect(url_for('home'))
 
@@ -487,6 +526,9 @@ def edit_comment(comment_id):
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            
             comment.text = text  # Update the post content
             db.session.commit()
             flash("Comment updated successfully", category='success')
