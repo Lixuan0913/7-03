@@ -155,7 +155,8 @@ class ProfanityFilter:
             return False
             
         text_lower = text.lower()
-        return any(bad_word in text_lower for bad_word in self.word_variations)
+        words = re.findall(r'\w+', text_lower)
+        return any(bad_word in self.word_variations for bad_word in words)
     
 # Create a global instance
 profanity_filter = ProfanityFilter()
