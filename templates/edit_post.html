@@ -4,7 +4,7 @@
 <div class="post-edit-container">
     <h1 class="text-center mb-4">Edit Your Review</h1>
     
-    <form method="POST" class="post-form" novalidate>
+    <form method="POST" class="post-form" enctype="multipart/form-data" novalidate>
         <div class="form-group mb-4">
             <label for="text" class="form-label">Your Review *</label>
             <textarea name="text" id="text" class="form-control form-control-lg" rows="5" required>{{ post.text }}</textarea>
@@ -33,6 +33,27 @@
                 <div class="rating-hint text-muted mt-2">Click to select your rating</div>
             {% endif %}
         </div>
+
+        <div class="form-group mb-4">
+         <label class="col-sm-3 col-form-label">Current Images:</label>
+         <!--Show current image-->
+          {% for image in post.images %}
+           <div class="image-container mb-2">
+          <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}" style="width: 300px;">
+           <div class="mb-2">
+            <!--Delete certain image by click checkbox-->
+            <input type="checkbox" class="form-check-input mt-0" name="delete_images" value="{{ image.id }}" id="delete_{{ image.id }}">
+            <label for="delete_{{ image.id }}">Delete this image</label>
+           </div>
+          </div>
+         {% endfor %}
+          </div>
+         
+          <!--Upload Image-->
+         <div class="form-group mb-4">
+          <label>Add More Images:</label>
+           <input type="file"  class="form-control" name="images" multiple accept="image/*">
+          </div>
 
         <div class="form-actions text-center">
             <button type="submit" class="btn btn-primary btn-lg px-4">

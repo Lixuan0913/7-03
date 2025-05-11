@@ -363,12 +363,49 @@ def edit_post(id):
     if request.method == 'POST':
         text = request.form.get('text')
         ratings = request.form.get('ratings')
+        upload_image=request.files.getlist("images")
+        delete_images=request.form.getlist('delete_images')
         
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
             post.text = text
             post.ratings = int(ratings) if ratings else None
+
+            # Handle image uploads
+            if upload_image:
+                for file in upload_image:
+                    if file.filename != '':
+                        # Save the file
+                        filename = secure_filename(file.filename)
+                        file_ext = os.path.splitext(filename)[1].lower()
+                        if file_ext in ['.jpg', '.jpeg', '.png']:
+                          # Generate a unique filename to prevent collisions
+                         filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                         file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+
+                         try:
+                              file.save(file_path)
+                              # Create image record in database
+                              image = Image(filename=filename, post_id=post.id)
+                              db.session.add(image)
+                         except Exception as e:
+                           flash(f"Error saving image: {str(e)}", category='danger')
+
+
+            
+            # Handle image deletions
+            if delete_images:
+                for image_id in delete_images:
+                    image = Image.query.get(image_id)
+                    if image and image.post_id == post.id:  
+                        # Delete file from filesystem
+                        filepath = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+                        # Delete from database
+                        db.session.delete(image)
+
             db.session.commit()
             flash("Post updated successfully", category='success')
             return redirect(url_for('view_item',item_id=item_id))
@@ -692,6 +729,7 @@ def feedback(post_id, action):
 
 @app.route("/additem", methods=["GET", "POST"])
 def add_item():
+    
     create_tags()
 
     default_tags = Tag.query.filter_by(is_default=True).all()
@@ -712,7 +750,7 @@ def add_item():
             # Create the Item
             new_item = Item(
                 name=name,
-                description=description
+                description=description,
             )
             db.session.add(new_item)
             db.session.flush()  # Get the ID for the new item
@@ -782,6 +820,31 @@ def view_item(item_id):
     ).get_or_404(item_id)
     return render_template('view_item.html', item=item)
 
+@app.route("/deleteitem/<int:item_id>",methods=["GET", "POST"])
+def delete_item(item_id):
+     item = Item.query.get_or_404(item_id)
+     try:
+        # Delete associated images first
+        for image in item.images:  # This assumes you have a relationship named 'images'
+            # Delete image file from filesystem
+            image_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename)
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+            except Exception as e:
+                flash(f"Failed to delete image {image.filename}: {str(e)}")
+                # Continue with deletion even if file deletion fails
+        
+        # Delete the item itself (which will cascade delete the images from database)
+        db.session.delete(item)
+        db.session.commit()
+        flash("Item and all associated images deleted successfully", "success")
+     except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting item: {str(e)}", "danger")
+        
+    
+     return redirect(url_for('home'))
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
         db.create_all() 

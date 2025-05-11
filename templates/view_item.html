@@ -25,16 +25,26 @@
              <!-- Item Details -->
             <div class="card">
                 <div class="card-body">
+                    <a href="{{ url_for('delete_item', item_id=item.id) }}" method="POST" class="btn btn-primary">Delete item</a>
                     <h2 class="card-title">{{ item.name }}</h2>
-                    <p class="text-muted">{{ item.category }}</p>
+                    {% if item.tags %}
+                    <div class="mb-3">
+                        {% for tag in item.tags %}
+                        <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
+                            {{ tag.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <h3>Description</h3>
                     <p class="card-text">{{ item.description }}</p>
                     
-                    <!-- Reviews Section -->
+                    <!-- Post Section -->
          <div class="mb-5">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Reviews</h2>
                     <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i> Write a Review
+                        <i class="fas fa-plus me-1"></i> Write a Post
                     </a>
                 </div>
 
@@ -47,7 +57,7 @@
                 {% else %}
                 <div class="text-center py-5 bg-light rounded">
                     <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
-                    <h4 class="text-muted">No reviews yet</h4>
+                    <h4 class="text-muted">No posts yet</h4>
                     <p class="text-muted">Be the first to share your experience!</p>
                     <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary mt-2">
                         Write the first review
