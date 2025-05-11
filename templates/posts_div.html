@@ -1,7 +1,6 @@
 {% block content %}
 <div class="container">
     <div id="posts">
-        {% for post in posts %}
             <div class="card border-dark mb-7 post-separator" >
                 <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <div class="d-flex align-items-center">
@@ -142,7 +141,6 @@
                                             {% endif %}
                                         </div>
                                     </div>
-                                    {% if not loop.last %}<hr class="my-2">{% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -160,6 +158,7 @@
                         {% endif %}
                     </div>
                 </div>
+            </div>
     </div>
 </div>
 {% endblock %}

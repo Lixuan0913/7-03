@@ -50,9 +50,9 @@
 
                 {% if item.posts %}
                 <div class="horizontal-comments-container" style="overflow-x: auto; white-space: nowrap; padding-bottom: 20px;">
-                    {% for post in item.posts %}
-                        {% include 'posts_div.html' %}
-                    {% endfor %}
+                     {% for post in item.posts %}
+                        {% include 'posts_div.html' %}            
+                        {% endfor %}
                 </div>
                 {% else %}
                 <div class="text-center py-5 bg-light rounded">

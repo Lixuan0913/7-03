@@ -91,7 +91,7 @@ class Replies(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
 
 item_tags = db.Table('item_tags',
-    db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),
+    db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete="CASCADE"), primary_key=True)
 )
 
@@ -161,17 +161,6 @@ class ProfanityFilter:
 profanity_filter = ProfanityFilter()
     
 @app.route("/")
-@app.route("/intro")
-def index():
-   
-   if "user" in session:
-      posts = Post.query.all()
-      username = session["user"]
-      user = Users.query.filter_by(username=username).first()
-      return render_template("home.html", user=user, posts=posts)
-   else:
-      return render_template("intro.html")
-
 @app.route("/home")
 def home():
    user=session.get("user")
@@ -336,7 +325,7 @@ def create_post(item_id):
             if profanity_filter.contains_profanity(text):
                 flash("Your comment contains inappropriate language and cannot be posted", category="danger")
             else:
-                post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
+                post = Post(text=text, author=username, ratings=int(ratings) if ratings else None,item_id=item.id)
                 db.session.add(post)
                 db.session.flush()  # <--- Flush here to get post.id
 
@@ -358,9 +347,9 @@ def create_post(item_id):
                             flash(f"Error saving image: {str(e)}", category='danger')
                             continue
 
-            db.session.commit()
-            flash('Post created!', category='success')
-            return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
+                db.session.commit()
+                flash('Post created!', category='success')
+                return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
    return render_template("create_post.html")
                 
 
