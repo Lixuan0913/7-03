@@ -14,8 +14,10 @@ app = Flask(__name__,template_folder="templates")
 app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
 POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
+ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 app.config['POST_IMAGE_FOLDER']=POST_IMAGE_FOLDER
+app.config['ITEM_IMAGE_FOLDER']=ITEM_IMAGE_FOLDER
 os.makedirs(POST_IMAGE_FOLDER, exist_ok=True)
 
 # Configure SQLite database
@@ -64,10 +66,6 @@ class Users(db.Model):
         ).first()
         return feedback is not None
         
-post_tags = db.Table('post_tags',
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
-    db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True)
-)
 
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -81,10 +79,10 @@ class Post(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
-    tags = db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -92,10 +90,29 @@ class Replies(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
 
+item_tags = db.Table('item_tags',
+    db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete="CASCADE"), primary_key=True)
+)
+
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     is_default = db.Column(db.Boolean, default=False)  # True for predefined tags
+
+class Item_Image(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(100), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
+
+class Item(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(140))
+    description = db.Column(db.Text)
+    images=db.relationship('Item_Image', backref='item', cascade="all, delete-orphan", passive_deletes=True)
+    tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
+    posts = db.relationship('Post', backref='item', cascade="all, delete-orphan", passive_deletes=True)
+
 
 class Feedback(db.Model):  # Add this new class
     id = db.Column(db.Integer, primary_key=True)
@@ -111,12 +128,15 @@ class Feedback(db.Model):  # Add this new class
 @app.route("/")
 @app.route("/home")
 def home():
-
+   user=session.get("user")
+   review_item=Item.query.options(
+        db.joinedload(Item.images),
+        db.joinedload(Item.posts)
+    ).all()
    if "user" in session:
-      posts = Post.query.all()
       username = session["user"]
       user = Users.query.filter_by(username=username).first()
-      return render_template("home.html", user=user, posts=posts)
+      return render_template("home.html", user=user, items=review_item)
       
    else:
       flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
@@ -239,13 +259,11 @@ def create_tags():
         db.session.bulk_save_objects(new_tags)
         db.session.commit()
 
-@app.route("/create-post", methods=['GET', 'POST'])
-def create_post():
+@app.route("/create-post/<int:item_id>", methods=['GET', 'POST'])
+def create_post(item_id):
    if "user" not in session:
       flash("Please login to create a post", category="danger")
       return redirect(url_for("login"))
-   
-   create_tags()
 
    username=session.get("user")
    user = Users.query.filter_by(username=username).first()
@@ -253,48 +271,25 @@ def create_post():
    if not user:
       flash("User not found", category="danger")
     
-   default_tags = Tag.query.filter_by(is_default=True).all()
+   item = Item.query.get_or_404(item_id)
 
    if request.method == "POST":
         text = request.form.get('text', '').strip()  # Get and clean the text
         ratings = request.form.get('ratings')
-        selected_default_tags = request.form.getlist('default_tags')
-        custom_tags = request.form.get('custom_tags',' ').strip()
         upload_files = request.files.getlist('picture')
 
         if not text:
             flash("Post cannot be empty", category='danger')
-            return render_template("create_post.html",default_tags=default_tags)
+            return render_template("create_post.html")
         if not ratings:
             flash("Select a rating", category="danger")
-            return render_template("create_post.html", text=text,default_tags=default_tags)
+            return render_template("create_post.html", text=text)
         else:
-            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
+            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None,item_id=item_id)
             db.session.add(post)
             db.session.flush()  # <--- Flush here to get post.id
 
 
-            #Process default tags
-            for tag_id in selected_default_tags:
-                tag=Tag.query.get(tag_id)
-                if tag:
-                    post.tags.append(tag)
-
-            # Process custom tags
-            if custom_tags:
-                  
-                for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
-
-                    # Check if tag exists (case-insensitive)
-                    tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
-
-                    if not tag:  # Create new tag if it doesn't exist
-                      tag = Tag(name=tag_name, is_default=False)
-                      db.session.add(tag)
-                      db.session.flush()
-
-                    if tag not in post.tags: # prevent duplicate
-                      post.tags.append(tag)
 
             for file in upload_files:
                 filename = secure_filename(file.filename)
@@ -315,11 +310,12 @@ def create_post():
 
             db.session.commit()
             flash('Post created!', category='success')
-            return redirect(url_for('home'))
-   return render_template("create_post.html",default_tags=default_tags)
+            return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
+   return render_template("create_post.html")
 
-@app.route("/delete-post/<id>", methods=['GET','POST'])
+@app.route("/delete-post/<int:id>", methods=['GET','POST'])
 def delete_post(id):
+    item_id = request.args.get('item_id', type=int)
     post = Post.query.filter_by(id=id).first()
 
     if not post:
@@ -349,11 +345,12 @@ def delete_post(id):
        profile_username = referrer.split('/profile/')[-1].split('?')[0]
        return redirect(url_for('profile', username=profile_username))
     
-    return redirect(url_for('home'))
+    return redirect(url_for('view_item', item_id=item_id))
 
 @app.route("/edit-post/<id>", methods=['GET', 'POST'])
 def edit_post(id):
     post = Post.query.filter_by(id=id).first()
+    item_id = request.args.get('item_id', type=int)
 
     if not post:
         flash("Post doesn't exist", category="danger")
@@ -374,7 +371,7 @@ def edit_post(id):
             post.ratings = int(ratings) if ratings else None
             db.session.commit()
             flash("Post updated successfully", category='success')
-            return redirect(url_for('home'))
+            return redirect(url_for('view_item',item_id=item_id))
     
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)
@@ -398,19 +395,19 @@ def posts(username):
 
    return render_template("posts.html", user=current_user, posts=posts, username=username)
 
-@app.route("/view_post/<int:post_id>")
-def view_post(post_id):
+@app.route("/view_post/<int:post_id>/item/<int:item_id>")
+def view_post(post_id, item_id):
     post = Post.query.options(
         db.joinedload(Post.images),
-        db.joinedload(Post.tags),
         db.joinedload(Post.comments).joinedload(Replies.users)
     ).filter_by(id=post_id).first()
+    item = Item.query.get_or_404(item_id)
 
     if not post:
         flash("Post not found", category="error")
         return redirect(url_for("home"))
     
-    return render_template("view_post.html", post=post)
+    return render_template("view_post.html", post=post,item=item)
 
 @app.route("/create-comment/<post_id>", methods=["POST"])
 def create_comment(post_id):
@@ -692,6 +689,98 @@ def feedback(post_id, action):
     db.session.commit()
     
     return redirect(request.referrer or url_for('home'))
+
+@app.route("/additem", methods=["GET", "POST"])
+def add_item():
+    create_tags()
+
+    default_tags = Tag.query.filter_by(is_default=True).all()
+
+
+    if request.method == "POST":
+        name=request.form.get("name")
+        selected_default_tags = request.form.getlist('default_tags')
+        custom_tags = request.form.get('custom_tags',' ').strip()
+        description=request.form.get("description")
+        review_pic=request.files.getlist('review_picture')
+
+        if not (name and description):
+            flash("Please enter all required fields", "error")
+            return redirect(url_for('add_item'))
+        
+        try:
+            # Create the Item
+            new_item = Item(
+                name=name,
+                description=description
+            )
+            db.session.add(new_item)
+            db.session.flush()  # Get the ID for the new item
+
+            # Process default tags
+            for tag_id in selected_default_tags:
+                tag = Tag.query.get(tag_id)
+                if tag:
+                    new_item.tags.append(tag)
+
+            # Process custom tags
+            if custom_tags:
+                for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
+                    # Check if tag exists (case-insensitive)
+                    tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
+
+                    if not tag:  # Create new tag if it doesn't exist
+                        tag = Tag(name=tag_name, is_default=False)
+                        db.session.add(tag)
+                        db.session.flush()
+
+                    if tag not in new_item.tags:
+                        new_item.tags.append(tag)
+            
+            # Process images if any
+            if review_pic:
+                for file in review_pic:
+                    if file.filename == '':  # Skip if no file selected
+                        continue
+                        
+                    filename = secure_filename(file.filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Generate unique filename
+                        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                        file_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], unique_filename)
+                        
+                        try:
+                            file.save(file_path)
+                            # Create image record linked to the item
+                            new_image = Item_Image(
+                                filename=unique_filename,
+                                item_id=new_item.id
+                            )
+                            db.session.add(new_image)
+                        except Exception as e:
+                            flash(f"Error saving image: {str(e)}", "error")
+                            continue
+            
+            db.session.commit()
+            flash("Item added successfully!", "success")
+            return redirect(url_for('home'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"An error occurred: {str(e)}", "error")
+            return redirect(url_for('home'))
+    
+    return render_template("add_item.html",default_tags=default_tags)
+
+@app.route("/viewitem/<int:item_id>",methods=["GET", "POST"])
+def view_item(item_id):
+    item = Item.query.options(
+        db.joinedload(Item.images),
+        db.joinedload(Item.posts)
+    ).get_or_404(item_id)
+    return render_template('view_item.html', item=item)
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request

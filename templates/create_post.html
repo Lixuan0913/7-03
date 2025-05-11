@@ -35,23 +35,6 @@
             {% endif %}
         </div>
 
-        <div class="tags">
-            <h4>Pick Tags</h4>
-            {% for tag in default_tags %}
-              <label>
-                <input type="checkbox" name="default_tags" value="{{ tag.id }}">{{ tag.name }}</input>
-              </label>
-              {% endfor %}
-              <div class="tag-input-section mt-3">
-                <label for="custom-tags">Add Your Own Tags (comma separated):</label>
-                <input type="text" 
-                       id="custom-tags" 
-                       name="custom_tags" 
-                       class="form-control"
-                       placeholder="e.g., classroom">
-            </div>
-        </div>
-
             <div class=" row mb-3">
                 <label for="Picture" class="col-sm-3 col-form-label">Picture</label>
                 <div class="col-sm-9">
