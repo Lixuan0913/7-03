@@ -155,7 +155,8 @@ class ProfanityFilter:
             return False
             
         text_lower = text.lower()
-        return any(bad_word in text_lower for bad_word in self.word_variations)
+        words = re.findall(r'\w+', text_lower)
+        return any(bad_word in self.word_variations for bad_word in words)
     
 # Create a global instance
 profanity_filter = ProfanityFilter()
@@ -358,9 +359,9 @@ def create_post(item_id):
                             flash(f"Error saving image: {str(e)}", category='danger')
                             continue
 
-            db.session.commit()
-            flash('Post created!', category='success')
-            return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
+                db.session.commit()
+                flash('Post created!', category='success')
+                return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
    return render_template("create_post.html")
                 
 
