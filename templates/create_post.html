@@ -6,7 +6,7 @@
     
     <form method="POST" class="post-form" enctype="multipart/form-data" novalidate>
         <div class="form-group mb-4">
-            <label for="text" class="form-label">Your Review *</label>
+            <label for="text" class="form-label">Your Review</label>
             <textarea name="text" id="text" class="form-control {% if request.method == 'POST' and not request.form.get('text') %}is-invalid{% endif %}" 
                       rows="5" placeholder="Share your thoughts and experiences..." required>{{ request.form.text if request.form.text else '' }}</textarea>
             {% if request.method == 'POST' and not request.form.get('text') %}
@@ -15,7 +15,7 @@
         </div>
 
         <div class="rating-section mb-4">
-            <label class="rating-label">Rate your experience *</label>
+            <label class="rating-label">Rate your experience <span class="text-danger">*</span></label>
             <div class="star-rating {% if request.method == 'POST' and not request.form.get('ratings') %}border border-danger rounded p-2{% endif %}">
                 <input type="radio" id="star5" name="ratings" value="5" {% if request.form.get('ratings') == '5' %}checked{% endif %} required>
                 <label for="star5" title="Excellent">★</label>

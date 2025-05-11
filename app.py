@@ -125,7 +125,53 @@ class Feedback(db.Model):  # Add this new class
     )
     
 
+# Simple profanity filter
+class ProfanityFilter:
+    def __init__(self):
+        # List of inappropriate words (customize this list)
+        self.banned_words = [
+            'shit', 'fuck', 'asshole', 'bitch', 'cunt',
+            'dick', 'pussy', 'bastard', 'whore', 'slut',
+            'fag', 'nigger', 'retard', 'damn', 'hell',
+            'suck', 'nigga', 'fucking', 'ass'
+        ]
+        
+        # Create variations with common misspellings
+        self.word_variations = []
+        for word in self.banned_words:
+            self.word_variations.append(word)
+            self.word_variations.append(word.replace('i', '1'))
+            self.word_variations.append(word.replace('i', '!'))
+            self.word_variations.append(word.replace('e', '3'))
+            self.word_variations.append(word.replace('a', '4'))
+            self.word_variations.append(word.replace('o', '0'))
+            self.word_variations.append(word.replace('u', '0'))
+            self.word_variations.append(word + 'head')
+            self.word_variations.append(word + 'hole')
+    
+    def contains_profanity(self, text):
+        """Check if text contains any banned words"""
+        if not text:
+            return False
+            
+        text_lower = text.lower()
+        return any(bad_word in text_lower for bad_word in self.word_variations)
+    
+# Create a global instance
+profanity_filter = ProfanityFilter()
+    
 @app.route("/")
+@app.route("/intro")
+def index():
+   
+   if "user" in session:
+      posts = Post.query.all()
+      username = session["user"]
+      user = Users.query.filter_by(username=username).first()
+      return render_template("home.html", user=user, posts=posts)
+   else:
+      return render_template("intro.html")
+
 @app.route("/home")
 def home():
    user=session.get("user")
@@ -141,6 +187,7 @@ def home():
    else:
       flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
       return render_template("intro.html")
+
 
 @app.route("/database")
 def database():
@@ -269,9 +316,10 @@ def create_post(item_id):
    user = Users.query.filter_by(username=username).first()
 
    if not user:
-      flash("User not found", category="danger")
+        flash("User not found", category="danger")
     
    item = Item.query.get_or_404(item_id)
+
 
    if request.method == "POST":
         text = request.form.get('text', '').strip()  # Get and clean the text
@@ -285,33 +333,36 @@ def create_post(item_id):
             flash("Select a rating", category="danger")
             return render_template("create_post.html", text=text)
         else:
-            post = Post(text=text, author=username, ratings=int(ratings) if ratings else None,item_id=item_id)
-            db.session.add(post)
-            db.session.flush()  # <--- Flush here to get post.id
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            else:
+                post = Post(text=text, author=username, ratings=int(ratings) if ratings else None)
+                db.session.add(post)
+                db.session.flush()  # <--- Flush here to get post.id
 
 
-
-            for file in upload_files:
-                filename = secure_filename(file.filename)
-                file_ext = os.path.splitext(filename)[1].lower()
-                if file_ext in ['.jpg', '.jpeg', '.png']:
-                    # Generate a unique filename to prevent collisions
-                    filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
-                    file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
-                    
-                    try:
-                        file.save(file_path)
-                        # Create image record in database
-                        image = Image(filename=filename, post_id=post.id)
-                        db.session.add(image)
-                    except Exception as e:
-                        flash(f"Error saving image: {str(e)}", category='danger')
-                        continue
+                for file in upload_files:
+                    filename = secure_filename(file.filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Generate a unique filename to prevent collisions
+                        filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                        file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+                        
+                        try:
+                            file.save(file_path)
+                            # Create image record in database
+                            image = Image(filename=filename, post_id=post.id)
+                            db.session.add(image)
+                        except Exception as e:
+                            flash(f"Error saving image: {str(e)}", category='danger')
+                            continue
 
             db.session.commit()
             flash('Post created!', category='success')
             return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
    return render_template("create_post.html")
+                
 
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
 def delete_post(id):
@@ -369,18 +420,22 @@ def edit_post(id):
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
-            post.text = text
-            post.ratings = int(ratings) if ratings else None
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            else:
+                post.text = text
+                post.ratings = int(ratings) if ratings else None
+                
 
-            # Handle image uploads
-            if upload_image:
-                for file in upload_image:
-                    if file.filename != '':
-                        # Save the file
-                        filename = secure_filename(file.filename)
-                        file_ext = os.path.splitext(filename)[1].lower()
-                        if file_ext in ['.jpg', '.jpeg', '.png']:
-                          # Generate a unique filename to prevent collisions
+        # Handle image uploads
+        if upload_image:
+            for file in upload_image:
+                if file.filename != '':
+                    # Save the file
+                    filename = secure_filename(file.filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Generate a unique filename to prevent collisions
                          filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
                          file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
 
@@ -395,21 +450,23 @@ def edit_post(id):
 
             
             # Handle image deletions
-            if delete_images:
-                for image_id in delete_images:
-                    image = Image.query.get(image_id)
-                    if image and image.post_id == post.id:  
-                        # Delete file from filesystem
-                        filepath = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
-                        # Delete from database
-                        db.session.delete(image)
+        if delete_images:
+            for image_id in delete_images:
+                image = Image.query.get(image_id)
+                if image and image.post_id == post.id:  
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Delete from database
+                    db.session.delete(image)
 
             db.session.commit()
             flash("Post updated successfully", category='success')
             return redirect(url_for('view_item',item_id=item_id))
     
+
+        
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)
 
@@ -455,14 +512,17 @@ def create_comment(post_id):
    if not text :
       flash("Comment cannot be empty", category="danger")
    else:
-      post = Post.query.filter_by(id=post_id)
-      if post:
-         comment = Replies(text=text, author=username, post_id=post_id)
-         db.session.add(comment)
-         db.session.commit()
-         flash("Comment posted", category="success")
+      if profanity_filter.contains_profanity(text):
+            flash("Your comment contains inappropriate language and cannot be posted", category="danger")
       else:
-         flash("Post doesn't exist", category="danger")
+        post = Post.query.filter_by(id=post_id)
+        if post:
+            comment = Replies(text=text, author=username, post_id=post_id)
+            db.session.add(comment)
+            db.session.commit()
+            flash("Comment posted", category="success")
+        else:
+            flash("Post doesn't exist", category="danger")
    
    return redirect(url_for('home'))
 
@@ -506,6 +566,9 @@ def edit_comment(comment_id):
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
+            if profanity_filter.contains_profanity(text):
+                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+            
             comment.text = text  # Update the post content
             db.session.commit()
             flash("Comment updated successfully", category='success')
