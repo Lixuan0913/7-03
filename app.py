@@ -66,7 +66,6 @@ class Users(db.Model):
         ).first()
         return feedback is not None
         
-
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(100), nullable=False)
@@ -74,7 +73,7 @@ class Image(db.Model):
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    ratings = db.Column(db.Integer)
+    ratings = db.Column(db.Integer, nullable=True)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
@@ -83,6 +82,7 @@ class Post(db.Model):
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
     item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
+    status = db.Column(db.String(20), default='visible')
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -113,7 +113,6 @@ class Item(db.Model):
     tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
     posts = db.relationship('Post', backref='item', cascade="all, delete-orphan", passive_deletes=True)
 
-
 class Feedback(db.Model):  # Add this new class
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -124,6 +123,15 @@ class Feedback(db.Model):  # Add this new class
         db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
     )
     
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    reporter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    reported_content_id = db.Column(db.Integer, nullable=False)
+    content_type = db.Column(db.String(10), nullable=False)
+    reason = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.String(200))
+
+    reporter = db.relationship('Users', backref='reports')
 
 # Simple profanity filter
 class ProfanityFilter:
@@ -326,7 +334,7 @@ def create_post(item_id):
             if profanity_filter.contains_profanity(text):
                 flash("Your comment contains inappropriate language and cannot be posted", category="danger")
             else:
-                post = Post(text=text, author=username, ratings=int(ratings) if ratings else None,item_id=item.id)
+                post = Post(text=text, author=username, ratings=int(ratings), item_id=item.id)
                 db.session.add(post)
                 db.session.flush()  # <--- Flush here to get post.id
 
@@ -351,7 +359,7 @@ def create_post(item_id):
                 db.session.commit()
                 flash('Post created!', category='success')
                 return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
-   return render_template("create_post.html")
+   return render_template("create_post.html", item=item)
                 
 
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
@@ -364,6 +372,10 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
     else:
+        post.status = 'removed'
+        post.text = "[This post has been removed]"
+        post.ratings = None
+
         for image in post.images:
             try:
                 image_path = os.path.join(POST_IMAGE_FOLDER, image.filename)
@@ -375,9 +387,8 @@ def delete_post(id):
         # First delete all comments associated with the post
         Replies.query.filter_by(post_id=post.id).delete()
         # Then delete the post
-        db.session.delete(post)
         db.session.commit()
-        flash("Post and its comments are deleted", category="success")
+        flash("Post has been removed", category="success")
 
      # Check if the referrer is the profile page
     referrer = request.referrer
@@ -451,9 +462,9 @@ def edit_post(id):
                     # Delete from database
                     db.session.delete(image)
 
-            db.session.commit()
-            flash("Post updated successfully", category='success')
-            return redirect(url_for('view_item',item_id=item_id))
+        db.session.commit()
+        flash("Post updated successfully", category='success')
+        return redirect(url_for('view_item',item_id=item_id))
     
 
         
@@ -495,26 +506,27 @@ def view_post(post_id, item_id):
 
 @app.route("/create-comment/<post_id>", methods=["POST"])
 def create_comment(post_id):
-   text = request.form.get('text')
-   username=session.get("user")
-   user = Users.query.filter_by(username=username).first()
+    text = request.form.get('text')
+    username=session.get("user")
+    post = Post.query.filter_by(id=post_id).first()
 
-   if not text :
+    if not text :
       flash("Comment cannot be empty", category="danger")
-   else:
-      if profanity_filter.contains_profanity(text):
+    elif not post:
+       flash("Comment doesn't exist", category="danger")
+    else:
+        if profanity_filter.contains_profanity(text):
             flash("Your comment contains inappropriate language and cannot be posted", category="danger")
-      else:
-        post = Post.query.filter_by(id=post_id)
-        if post:
-            comment = Replies(text=text, author=username, post_id=post_id)
-            db.session.add(comment)
-            db.session.commit()
-            flash("Comment posted", category="success")
         else:
-            flash("Post doesn't exist", category="danger")
+            if post:
+                comment = Replies(text=text, author=username, post_id=post_id)
+                db.session.add(comment)
+                db.session.commit()
+                flash("Comment posted", category="success")
+            else:
+                flash("Post doesn't exist", category="danger")
    
-   return redirect(url_for('home'))
+    return redirect(url_for('view_item', item_id=post.item_id))
 
 @app.route("/delete-comment/<comment_id>")
 def delete_comment(comment_id):
@@ -550,6 +562,9 @@ def edit_comment(comment_id):
         flash("You don't have permission to edit this post.", category="danger")
         return redirect(url_for('home'))
 
+   post = comment.post
+   item_id = post.item_id
+   
    if request.method == 'POST':
         text = request.form.get('text')
         
@@ -562,9 +577,9 @@ def edit_comment(comment_id):
             comment.text = text  # Update the post content
             db.session.commit()
             flash("Comment updated successfully", category='success')
-            return redirect(url_for('home'))
+            return redirect(url_for('view_item', item_id=item_id))
     
-   return render_template('edit_comment.html', comment=comment)
+   return render_template('edit_comment.html', comment=comment, post=post)
 
 # Pass Stuff To Navbar
 @app.context_processor
@@ -796,7 +811,7 @@ def add_item():
         review_pic=request.files.getlist('review_picture')
 
         if not (name and description):
-            flash("Please enter all required fields", "error")
+            flash("Please enter all required fields", "danger")
             return redirect(url_for('add_item'))
         
         try:
@@ -874,8 +889,10 @@ def view_item(item_id):
     return render_template('view_item.html', item=item)
 
 @app.route("/deleteitem/<int:item_id>",methods=["GET", "POST"])
-def delete_item(item_id):
+def delete_item(item_id, comment_id):
      item = Item.query.get_or_404(item_id)
+     comment = Replies.query.filter_by(id=comment_id).first()
+
      try:
         # Delete associated images first
         for image in item.images:  # This assumes you have a relationship named 'images'
@@ -890,14 +907,94 @@ def delete_item(item_id):
         
         # Delete the item itself (which will cascade delete the images from database)
         db.session.delete(item)
+        db.session.delete(comment)
         db.session.commit()
         flash("Item and all associated images deleted successfully", "success")
      except Exception as e:
         db.session.rollback()
         flash(f"Error deleting item: {str(e)}", "danger")
         
-    
      return redirect(url_for('home'))
+
+@app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
+def report_post(post_id):
+    if 'user' not in session:
+        flash("Please login to report content", category="danger")
+        return redirect(url_for('login'))
+    
+    post = Post.query.get_or_404(post_id)
+
+    if request.method == 'POST':
+        reason = request.form.get('reason')
+        details = request.form.get('details')
+
+        if not reason: 
+            flash("Please select a reason for reporting", category="danger")
+        else:
+            #Checks if user already reported this post
+            existing_report = Report.query.filter_by(
+                reporter_id=session['user_id'],
+                reported_content_id=post_id,
+                content_type='post').first()
+            
+            if existing_report:
+                flash("You have already reported this post", category="info")
+            else:
+                report = Report(
+                    reporter_id=session['user_id'],
+                    reported_content_id=post_id,
+                    content_type='post',
+                    reason=reason,
+                    details=details
+                )
+                db.session.add(report)
+                db.session.commit()
+                flash("Your report has been submitted", category="success")
+
+            return redirect(url_for('view_item', item_id=post.item_id))
+    
+    return render_template('report_form.html', content=post, content_type="post")
+
+@app.route("/report/comment/<int:comment_id>", methods=["GET", "POST"])
+def report_comment(comment_id):
+    if 'user' not in session:
+        flash("Please login to report content", category="danger")
+        return redirect(url_for('login'))
+    
+    comment = Replies.query.get_or_404(comment_id)
+
+    if request.method == 'POST':
+        reason = request.form.get('reason')
+        details = request.form.get('details')
+
+        if not reason: 
+            flash("Please select a reason for reporting", category="danger")
+        else:
+            #Checks if user already reported this post
+            existing_report = Report.query.filter_by(
+                reporter_id=session['user_id'],
+                reported_content_id=comment_id,
+                content_type='comment').first()
+            
+            if existing_report:
+                flash("You have already reported this post", category="info")
+            else:
+                report = Report(
+                    reporter_id=session['user_id'],
+                    reported_content_id=comment_id,
+                    content_type='comment',
+                    reason=reason,
+                    details=details
+                )
+                db.session.add(report)
+                db.session.commit()
+                flash("Your report has been submitted", category="success")
+
+            return redirect(url_for('view_item', item_id=comment.post.item_id))
+    
+    return render_template('report_form.html', content=comment, content_type="comment")
+
+
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
         db.create_all() 

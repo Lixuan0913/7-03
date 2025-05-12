@@ -1,12 +1,142 @@
-{% extends "posts_div.html" %}  
+{% extends "base.html" %}
+{% block title %}Edit Comment{% endblock %}
 {% block content %}
-<h1 align="center">Edit Comment</h1>
-<form method="POST">
-    <textarea name="text" id="text" class="form-control">{{ comment.text }}</textarea>
-    <br>
-    <div align="center">
-        <button type="submit" class="btn btn-primary">Update Comment</button>
-        <a href="{{ url_for('home') }}" class="btn btn-secondary">Cancel</a>
-    </div>
+<div class="comment-edit-container">
+    <h1 class="text-center mb-4">Edit Your Comment</h1>
+    
+    <form method="POST" class="comment-form">
+        <div class="form-group mb-4">
+            <label for="text" class="form-label">Comment Text</label>
+            <textarea name="text" id="text" class="form-control" rows="6" required>{{ comment.text }}</textarea>
+            {% if request.method == 'POST' and not request.form.get('text') %}
+                <div class="invalid-feedback d-block">Comment cannot be empty</div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions d-flex justify-content-between">
+            <a href="{{ url_for('view_item', item_id=post.item_id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-2"></i>Update Comment
+            </button>
+        </div>
     </form>
+</div>
+
+<style>
+    /* Main Container */
+    .comment-edit-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Header */
+    h1 {
+        color: #2c3e50;
+        font-weight: 600;
+        position: relative;
+        padding-bottom: 0.5rem;
+    }
+    
+    h1:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+    }
+
+    /* Form Elements */
+    .comment-form {
+        padding: 1rem 0;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #34495e;
+        margin-bottom: 0.75rem;
+        display: block;
+        font-size: 1.1rem;
+    }
+    
+    textarea.form-control {
+        border: 2px solid #ecf0f1;
+        border-radius: 8px;
+        padding: 1.25rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        min-height: 200px;
+    }
+    
+    textarea.form-control:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        outline: none;
+    }
+    
+    .invalid-feedback.d-block {
+        color: #e74c3c;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+        border-color: #3498db;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-outline-secondary {
+        border-color: #bdc3c7;
+        color: #7f8c8d;
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #f8f9fa;
+        border-color: #95a5a6;
+        color: #34495e;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .comment-edit-container {
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+        }
+        
+        .form-actions {
+            flex-direction: column-reverse;
+            gap: 1rem;
+        }
+        
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
 {% endblock %}

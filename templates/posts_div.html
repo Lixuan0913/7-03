@@ -23,6 +23,7 @@
                             <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
+                            <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
                         </ul>
                     </div>
                     {% endif %}
@@ -94,7 +95,7 @@
             </a>
 
                     <!-- Comments Section -->
-                    <div class="comments-section border-top pt-3">
+                    <div class="comments-section border-top py-3 px-3">
                         <!-- Comments Toggle -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             {% if post.comments|length > 0 %}
@@ -136,6 +137,7 @@
                                                 <ul class="dropdown-menu dropdown-menu-end">
                                                     <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
                                                     <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                                    <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
                                                 </ul>
                                             </div>
                                             {% endif %}

@@ -36,6 +36,7 @@
                         {% endfor %}
                     </div>
                     {% endif %}
+
                     <h3>Description</h3>
                     <p class="card-text">{{ item.description }}</p>
                     
@@ -51,7 +52,7 @@
                 {% if item.posts %}
                 <div class="horizontal-comments-container" style="overflow-x: auto; white-space: nowrap; padding-bottom: 20px;">
                      {% for post in item.posts %}
-                        {% include 'posts_div.html' %}            
+                        {% include 'posts_div.html' %}
                         {% endfor %}
                 </div>
                 {% else %}
