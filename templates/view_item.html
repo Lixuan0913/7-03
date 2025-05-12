@@ -9,24 +9,37 @@
         </div>
             <!-- Item Images Carousel -->
             {% if item.images %}
-            <div id="itemCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+            <div id="itemCarousel" class="carousel carousel-dark slide" data-bs-ride="carousel">
                 <div class="carousel-inner">
                     {% for image in item.images %}
                     <div class="carousel-item {% if loop.first %}active{% endif %}">
                         <img src="{{ url_for('static', filename='itempic/' + image.filename) }}" 
-                             class="d-block w-100" 
+                             class="d-block w-100 zoomable-image-css " 
                              alt="{{ item.name }}"
                              style="max-height: 500px; object-fit: contain;">
                     </div>
                     {% endfor %}
+                      </div>
+                      {% if item.images|length > 1 %}
+                     <button class="carousel-control-prev" type="button" data-bs-target="#itemCarousel" data-bs-slide="prev">
+                      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                      <span class="visually-hidden">Previous</span>
+                      </button>
+                       <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
+                      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                       <span class="visually-hidden">Next</span>
+                         </button>
+                     {% endif %}
                 </div>
             {% endif %}
 
              <!-- Item Details -->
             <div class="card">
                 <div class="card-body">
-                    <a href="{{ url_for('delete_item', item_id=item.id) }}" method="POST" class="btn btn-primary">Delete item</a>
-                    <h2 class="card-title">{{ item.name }}</h2>
+                    <div class="text-end">
+                      <a href="{{ url_for('delete_item', item_id=item.id) }}" method="POST" class="btn btn-primary">Delete item</a>
+                    </div>
+                    <h2 class="card-title mb-3">{{ item.name }}</h2>
                     {% if item.tags %}
                     <div class="mb-3">
                         {% for tag in item.tags %}

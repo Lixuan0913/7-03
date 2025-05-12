@@ -454,8 +454,6 @@ def edit_post(id):
             db.session.commit()
             flash("Post updated successfully", category='success')
             return redirect(url_for('view_item',item_id=item_id))
-    
-
         
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)

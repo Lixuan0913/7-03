@@ -54,7 +54,6 @@
                    {% for image in post.images %}
                    <a href="#image-{{ image.id }}">
                 <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
-                  class="zoomable-image-css"
                  style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
                  </a>
                  <div id="image-{{ image.id }}" class="enlarged-image-container">
@@ -64,10 +63,10 @@
                   <div class="navigation-buttons">
                    {% if post.images|length > 1 %}
                      {% if not loop.first %}
-                        <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button">❮ Previous</a>
+                        <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button btn btn-primary">❮</a>
                       {% endif %}
                   {% if not loop.last %}
-                    <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button">Next ❯</a>
+                    <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button btn btn-primary">❯</a>
                 {% endif %}
             {% endif %}
         </div>
