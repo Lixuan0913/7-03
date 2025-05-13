@@ -1,6 +1,7 @@
 {% block content %}
 <div class="container">
     <div id="posts">
+        {% if post.status != 'removed' %}
             <div class="card border-dark mb-7 post-separator" >
                 <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <div class="d-flex align-items-center">
@@ -49,32 +50,32 @@
                     <!-- Post Content -->
                     <div class="card-text mb-3">{{ post.text }}</div>
 
-                     <!-- Images -->
+                    <!-- Images -->
                     {% if post.images %}
-                  <div class="image-gallery">
-                   {% for image in post.images %}
-                   <a href="#image-{{ image.id }}">
-                <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
-                 style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
-                 </a>
-                 <div id="image-{{ image.id }}" class="enlarged-image-container">
-                  <a href="#" class="close-button-css">&times;</a>
-                    <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
-                     class="enlarged-image">
-                  <div class="navigation-buttons">
-                   {% if post.images|length > 1 %}
-                     {% if not loop.first %}
-                        <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button btn btn-primary">❮</a>
-                      {% endif %}
-                  {% if not loop.last %}
-                    <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button btn btn-primary">❯</a>
-                {% endif %}
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
+                        <div class="image-gallery">
+                            {% for image in post.images %}
+                                <a href="#image-{{ image.id }}">
+                                <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                                    style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                                </a>
+                                <div id="image-{{ image.id }}" class="enlarged-image-container">
+                                    <a href="#" class="close-button-css">&times;</a>
+                                    <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                                    class="enlarged-image">
+                                    <div class="navigation-buttons">
+                                        {% if post.images|length > 1 %}
+                                            {% if not loop.first %}
+                                                <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button btn btn-primary">❮</a>
+                                            {% endif %}
+                                            {% if not loop.last %}
+                                                <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button btn btn-primary">❯</a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                     
                     <!-- Feedback Section -->
                     <div class="feedback-section mb-3">
@@ -160,6 +161,13 @@
                     </div>
                 </div>
             </div>
+        {% else %}
+        <div class="card border-dark mb-7 post-separator">
+            <div class="card-body text-muted fst-italic">
+            <p>[This post has been deleted]</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

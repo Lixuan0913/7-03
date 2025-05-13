@@ -89,6 +89,7 @@ class Replies(db.Model):
     text = db.Column(db.String(200), nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
+    status = db.Column(db.String(20), default="visible")
 
 item_tags = db.Table('item_tags',
     db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
@@ -395,7 +396,9 @@ def delete_post(id):
                 flash(f"Failed to delete image {image.filename}: {e}")
 
         # First delete all comments associated with the post
-        Replies.query.filter_by(post_id=post.id).delete() # then delete the post
+        for reply in post.comments:
+            reply.status = 'removed'
+
         # Then delete the post
         db.session.commit()
         
