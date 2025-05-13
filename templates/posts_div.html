@@ -1,35 +1,35 @@
 {% block content %}
 <div class="container">
     <div id="posts">
-            <div class="card border-dark mb-7 post-separator" >
-                <div class="card-header d-flex justify-content-between align-items-center bg-light">
-                    <div class="d-flex align-items-center">
-                        <img class="rounded-circle me-2" 
-                            src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
-                            alt="{{ post.author }}'s profile image" 
-                            style="height: 40px; width: 40px; object-fit: cover;">
-                        <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold">{{post.author}}</a>
-                    </div>
-                    
-                    {% if session['user'] == post.author %}
-                    <div class="dropdown">
-                        <button class="btn btn-sm p-0 border-0 bg-transparent" 
-                                type="button" 
-                                data-bs-toggle="dropdown" 
-                                aria-expanded="false">
-                            <i class="fas fa-ellipsis-v text-muted"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
-                            <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
-                        </ul>
-                    </div>
-                    {% endif %}
+        <div class="card border-dark mb-7 post-separator">
+            <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <div class="d-flex align-items-center">
+                    <img class="rounded-circle me-2" 
+                        src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
+                        alt="{{ post.author }}'s profile image" 
+                        style="height: 40px; width: 40px; object-fit: cover;">
+                    <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold">{{post.author}}</a>
                 </div>
                 
-                <a href="{{ url_for('view_post', post_id=post.id, item_id=item.id) }}" style="text-decoration: none;">
+                {% if session['user'] == post.author %}
+                <div class="dropdown">
+                    <button class="btn btn-sm p-0 border-0 bg-transparent" 
+                            type="button" 
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false">
+                        <i class="fas fa-ellipsis-v text-muted"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
+                        <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <a href="{{ url_for('view_post', post_id=post.id, item_id=item.id) }}" style="text-decoration: none;">
                 <div class="card-body">
                     <!-- Star Rating Display -->
                     <div class="mb-3">
@@ -49,33 +49,33 @@
                     <!-- Post Content -->
                     <div class="card-text mb-3">{{ post.text }}</div>
 
-                     <!-- Images -->
+                    <!-- Images -->
                     {% if post.images %}
-                  <div class="image-gallery">
-                   {% for image in post.images %}
-                   <a href="#image-{{ image.id }}">
-                <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
-                  class="zoomable-image-css"
-                 style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
-                 </a>
-                 <div id="image-{{ image.id }}" class="enlarged-image-container">
-                  <a href="#" class="close-button-css">&times;</a>
-                    <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
-                     class="enlarged-image">
-                  <div class="navigation-buttons">
-                   {% if post.images|length > 1 %}
-                     {% if not loop.first %}
-                        <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button">❮ Previous</a>
-                      {% endif %}
-                  {% if not loop.last %}
-                    <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button">Next ❯</a>
-                {% endif %}
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
+                    <div class="image-gallery">
+                        {% for image in post.images %}
+                        <a href="#image-{{ image.id }}">
+                            <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                                class="zoomable-image-css"
+                                style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                        </a>
+                        <div id="image-{{ image.id }}" class="enlarged-image-container">
+                            <a href="#" class="close-button-css">&times;</a>
+                            <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                                class="enlarged-image">
+                            <div class="navigation-buttons">
+                                {% if post.images|length > 1 %}
+                                    {% if not loop.first %}
+                                        <a href="#image-{{ post.images[loop.index0 - 1].id }}" class="prev-button">❮ Previous</a>
+                                    {% endif %}
+                                    {% if not loop.last %}
+                                        <a href="#image-{{ post.images[loop.index0 + 1].id }}" class="next-button">Next ❯</a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     
                     <!-- Feedback Section -->
                     <div class="feedback-section mb-3">
@@ -84,13 +84,15 @@
                         {% else %}
                         <small class="text-muted">Be the first to provide feedback</small>
                         {% endif %}
-                        <div class="btn-group btn-group-sm" role="group">
+                        <div class="btn-group btn-group-sm" role="group" style="margin-left: 10px;">
                             <a href="{{ url_for('feedback', post_id=post.id, action='helpful') }}" 
-                               class="btn btn-outline-success {{ 'btn-success' if current_user and current_user.has_helpful_feedback(post.id) else 'btn-outline-success' }}">
+                               class="btn {{ 'btn-success' if current_user and current_user.has_helpful_feedback(post.id) else 'btn-outline-success' }}"
+                               style="opacity: 1 !important; visibility: visible !important;">
                                 <i class="fas fa-thumbs-up"></i> {{ post.helpful_count }}
                             </a>
                             <a href="{{ url_for('feedback', post_id=post.id, action='not-helpful') }}" 
-                               class="btn btn-outline-danger {{ 'btn-danger' if current_user and current_user.has_not_helpful_feedback(post.id) else 'btn-outline-danger' }}">
+                               class="btn {{ 'btn-danger' if current_user and current_user.has_not_helpful_feedback(post.id) else 'btn-outline-danger' }}"
+                               style="opacity: 1 !important; visibility: visible !important;">
                                 <i class="fas fa-thumbs-down"></i> {{ post.not_helpful_count }}
                             </a>
                         </div>
@@ -98,73 +100,72 @@
                 </div>
             </a>
 
-                    <!-- Comments Section -->
-                    <div class="comments-section border-top py-3 px-3">
-                        <!-- Comments Toggle -->
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            {% if post.comments|length > 0 %}
-                            <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button" class="text-decoration-none">
-                                <span class="text-primary small">
-                                    <i class="fas fa-comments me-1"></i> View {{ post.comments|length }} comment(s)
-                                </span>
-                            </a>
-                            {% else %}
-                            <span class="text-muted small">
-                                <i class="far fa-comment me-1"></i> No comments yet
-                            </span>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Comments Collapse -->
-                        <div class="collapse" id="comments-{{post.id}}">
-                            <div class="mb-3">
-                                {% for comment in post.comments %}
-                                    <div class="comment-item mb-3">
-                                        <div class="d-flex justify-content-between">
-                                            <div class="d-flex align-items-start">
-                                                <img class="rounded-circle me-2" 
-                                                     src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" 
-                                                     alt="{{ comment.author }}'s profile image" 
-                                                     style="height: 30px; width: 30px; object-fit: cover;">
-                                                <div>
-                                                    <div>
-                                                        <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
-                                                    </div>
-                                                    <div class="small">{{comment.text}}</div>
-                                                </div>
+            <!-- Comments Section -->
+            <div class="comments-section border-top py-3 px-3">
+                <!-- Comments Toggle -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    {% if post.comments|length > 0 %}
+                    <a data-bs-toggle="collapse" href="#comments-{{post.id}}" role="button" class="text-decoration-none">
+                        <span class="text-primary small">
+                            <i class="fas fa-comments me-1"></i> View {{ post.comments|length }} comment(s)
+                        </span>
+                    </a>
+                    {% else %}
+                    <span class="text-muted small">
+                        <i class="far fa-comment me-1"></i> No comments yet
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Comments Collapse -->
+                <div class="collapse" id="comments-{{post.id}}">
+                    <div class="mb-3">
+                        {% for comment in post.comments %}
+                            <div class="comment-item mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <div class="d-flex align-items-start">
+                                        <img class="rounded-circle me-2" 
+                                             src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" 
+                                             alt="{{ comment.author }}'s profile image" 
+                                             style="height: 30px; width: 30px; object-fit: cover;">
+                                        <div>
+                                            <div>
+                                                <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
                                             </div>
-                                            {% if session['user'] == comment.author or session['user'] == post.author %}
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                                    <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
-                                                    <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
-                                                </ul>
-                                            </div>
-                                            {% endif %}
+                                            <div class="small">{{comment.text}}</div>
                                         </div>
                                     </div>
-                                {% endfor %}
+                                    {% if session['user'] == comment.author or session['user'] == post.author %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                            <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                            <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- Comment Form -->
-                        {% if 'user' in session %}
-                        <form class="mt-3" method="POST" action="/create-comment/{{post.id}}">
-                            <div class="input-group">
-                                <input type="text" name="text" class="form-control form-control-sm" placeholder="Write a comment..." required>
-                                <button type="submit" class="btn btn-primary btn-sm">Comment
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </form>
-                        {% endif %}
+                        {% endfor %}
                     </div>
                 </div>
+                
+                <!-- Comment Form -->
+                {% if 'user' in session %}
+                <form class="mt-3" method="POST" action="/create-comment/{{post.id}}">
+                    <div class="input-group">
+                        <input type="text" name="text" class="form-control form-control-sm" placeholder="Write a comment..." required>
+                        <button type="submit" class="btn btn-primary btn-sm">Comment
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
             </div>
+        </div>
     </div>
 </div>
 {% endblock %}
