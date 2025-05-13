@@ -3,7 +3,6 @@ from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
-from flask_migrate import Migrate
 from datetime import datetime
 import re
 from werkzeug.utils import secure_filename
@@ -25,7 +24,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -52,7 +50,7 @@ class Users(db.Model):
        
     def has_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            user_id=self.id,
+            reviewer=self.username,  
             post_id=post_id,
             is_helpful=True
         ).first()
@@ -60,7 +58,7 @@ class Users(db.Model):
     
     def has_not_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            user_id=self.id,
+            reviewer=self.username,  
             post_id=post_id,
             is_helpful=False
         ).first()
@@ -76,13 +74,17 @@ class Post(db.Model):
     ratings = db.Column(db.Integer, nullable=True)
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
-    date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
     item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
     status = db.Column(db.String(20), default='visible')
+    
+    @property
+    def total_feedback_count(self):
+        return self.helpful_count + self.not_helpful_count
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -113,15 +115,19 @@ class Item(db.Model):
     tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
     posts = db.relationship('Post', backref='item', cascade="all, delete-orphan", passive_deletes=True)
 
-class Feedback(db.Model):  # Add this new class
+class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    reviewer = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False) 
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
     is_helpful = db.Column(db.Boolean, nullable=False)
     
+    # Relationship to Users via username
+    user = db.relationship('Users', backref='feedbacks', foreign_keys=[reviewer])
+    
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
+        db.UniqueConstraint('reviewer', 'post_id', name='_user_post_uc'),
     )
+
     
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -141,7 +147,7 @@ class ProfanityFilter:
             'shit', 'fuck', 'asshole', 'bitch', 'cunt',
             'dick', 'pussy', 'bastard', 'whore', 'slut',
             'fag', 'nigger', 'retard', 'damn', 'hell',
-            'suck', 'nigga', 'fucking', 'ass'
+            'suck', 'nigga', 'fucking', 'ass', 'cibai'
         ]
         
         # Create variations with common misspellings
@@ -748,12 +754,12 @@ def feedback(post_id, action):
         flash("Please login to provide feedback", "danger")
         return redirect(url_for('login'))
     
-    user = Users.query.filter_by(username=session["user"]).first()
+    username = session["user"]  # Get username directly from session
     post = Post.query.get_or_404(post_id)
     
-    # Check if user already gave feedback
+    # Check if user already gave feedback 
     existing_feedback = Feedback.query.filter_by(
-        user_id=user.id,
+        reviewer=username,
         post_id=post_id
     ).first()
     
@@ -771,7 +777,7 @@ def feedback(post_id, action):
         else:
             # New helpful vote
             post.helpful_count += 1
-            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=True)
+            feedback = Feedback(reviewer=username, post_id=post_id, is_helpful=True)
             db.session.add(feedback)
     
     elif action == "not-helpful":
@@ -788,11 +794,10 @@ def feedback(post_id, action):
         else:
             # New not helpful vote
             post.not_helpful_count += 1
-            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=False)
+            feedback = Feedback(author=username, post_id=post_id, is_helpful=False)
             db.session.add(feedback)
     
     db.session.commit()
-    
     return redirect(request.referrer or url_for('home'))
 
 @app.route("/additem", methods=["GET", "POST"])

@@ -79,7 +79,11 @@
                     
                     <!-- Feedback Section -->
                     <div class="feedback-section mb-3">
-                        <small class="text-muted">Was this review helpful?</small>
+                        {% if post.total_feedback_count > 0 %}
+                        <small class="text-muted">{{ post.total_feedback_count }} person{{ 's' if post.total_feedback_count > 1 else '' }} found this review helpful or not</small>
+                        {% else %}
+                        <small class="text-muted">Be the first to provide feedback</small>
+                        {% endif %}
                         <div class="btn-group btn-group-sm" role="group">
                             <a href="{{ url_for('feedback', post_id=post.id, action='helpful') }}" 
                                class="btn btn-outline-success {{ 'btn-success' if current_user and current_user.has_helpful_feedback(post.id) else 'btn-outline-success' }}">
