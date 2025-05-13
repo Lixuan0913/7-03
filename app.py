@@ -307,60 +307,69 @@ def create_tags():
 
 @app.route("/create-post/<int:item_id>", methods=['GET', 'POST'])
 def create_post(item_id):
-   if "user" not in session:
-      flash("Please login to create a post", category="danger")
-      return redirect(url_for("login"))
+    # Check if user is logged in
+    if "user" not in session:
+        flash("Please login to create a post", category="danger")
+        return redirect(url_for("login"))
 
-   username=session.get("user")
-   user = Users.query.filter_by(username=username).first()
-
-   if not user:
-        flash("User not found", category="danger")
+    # Get user and item
+    username = session["user"]
+    user = Users.query.filter_by(username=username).first()
+    item = Item.query.get_or_404(item_id)  # This will automatically 404 if item doesn't exist
     
-   item = Item.query.get_or_404(item_id)
+    if not user:
+        flash("User not found", category="danger")
+        return redirect(url_for("login"))
 
-
-   if request.method == "POST":
-        text = request.form.get('text', '').strip()  # Get and clean the text
+    if request.method == "POST":
+        text = request.form.get('text', '').strip()
         ratings = request.form.get('ratings')
         upload_files = request.files.getlist('picture')
 
+        # Validation
         if not text:
             flash("Post cannot be empty", category='danger')
-            return render_template("create_post.html")
-        if not ratings:
+        elif not ratings:
             flash("Select a rating", category="danger")
-            return render_template("create_post.html", text=text)
+        elif profanity_filter.contains_profanity(text):
+            flash("Your comment contains inappropriate language and cannot be posted", category="danger")
         else:
-            if profanity_filter.contains_profanity(text):
-                flash("Your comment contains inappropriate language and cannot be posted", category="danger")
-            else:
-                post = Post(text=text, author=username, ratings=int(ratings), item_id=item.id)
-                db.session.add(post)
-                db.session.flush()  # Flush to get post.id
-
-
+            # Create post
+            post = Post(
+                text=text,
+                author=username,
+                ratings=int(ratings),
+                item_id=item.id
+            )
+            db.session.add(post)
+            
+            try:
+                db.session.flush()  # Get the post ID
+                
+                # Handle file uploads
                 for file in upload_files:
-                    filename = secure_filename(file.filename)
-                    file_ext = os.path.splitext(filename)[1].lower()
-                    if file_ext in ['.jpg', '.jpeg', '.png']:
-                        # Generate a unique filename to prevent collisions
-                        filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
-                        file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], filename)
+                    if file.filename:  # Only process if file was actually uploaded
+                        filename = secure_filename(file.filename)
+                        file_ext = os.path.splitext(filename)[1].lower()
                         
-                        try:
+                        if file_ext in ['.jpg', '.jpeg', '.png']:
+                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                            file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], unique_filename)
+                            
                             file.save(file_path)
-                            # Create image record in database
-                            image = Image(filename=filename, post_id=post.id)
+                            image = Image(filename=unique_filename, post_id=post.id)
                             db.session.add(image)
-                        except Exception as e:
-                            flash(f"Error saving image: {str(e)}", category='danger')
-                            continue
-
+                
                 db.session.commit()
                 flash('Post created!', category='success')
-                return redirect(url_for('view_item', item_id=item.id))  # Redirect to item page
-   return render_template("create_post.html", item=item)
+                return redirect(url_for('view_item', item_id=item.id))
+            
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error creating post: {str(e)}", category='danger')
+
+    # For GET requests or failed POSTs
+    return render_template("create_post.html", item=item, text=request.form.get('text', ''))
                 
 
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
@@ -373,7 +382,10 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
     else:
-
+        post.status = 'removed'
+        post.text = "[This post has been deleted]"
+        post.ratings = None
+        
         for image in post.images:
             try:
                 image_path = os.path.join(POST_IMAGE_FOLDER, image.filename)
@@ -383,10 +395,10 @@ def delete_post(id):
                 flash(f"Failed to delete image {image.filename}: {e}")
 
         # First delete all comments associated with the post
-        Replies.query.filter_by(post_id=post.id).delete()
-        db.session.delete(post) # then delete the post
+        Replies.query.filter_by(post_id=post.id).delete() # then delete the post
         # Then delete the post
         db.session.commit()
+        
         flash("Post has been removed", category="success")
 
      # Check if the referrer is the profile page
@@ -524,25 +536,40 @@ def create_comment(post_id):
 
 @app.route("/delete-comment/<comment_id>")
 def delete_comment(comment_id):
-   username=session.get("user")
-   user = Users.query.filter_by(username=username).first()
-   comment = Replies.query.filter_by(id=comment_id).first()
+    username = session.get("user")
+    user = Users.query.filter_by(username=username).first()
+    comment = Replies.query.filter_by(id=comment_id).first()
 
-   if not comment:
-      flash("Comment doesn't exist", category="danger")
-   elif session.get("user") != comment.author and session.get("user") != comment.post.author:
-      flash("You don't have permission to delete this comment", category="danger")
-   else:
-      db.session.delete(comment)
-      db.session.commit()
-     # Check if the referrer is the profile page
-   referrer = request.referrer
-   if referrer and '/profile/' in referrer:
-       # Extract username from referrer URL
-       profile_username = referrer.split('/profile/')[-1].split('?')[0]
-       return redirect(url_for('profile', username=profile_username))
-   
-   return redirect(url_for('home'))
+    if not comment:
+        flash("Comment doesn't exist", category="danger")
+        return redirect(url_for('view_item', item_id=item_id))  # Exit early if comment is missing
+    
+    item_id = comment.post.item_id
+
+    if session.get("user") != comment.author and session.get("user") != comment.post.author:
+        flash("You don't have permission to delete this comment", category="danger")
+        return redirect(url_for('view_item', item_id=item_id))
+    
+    related_reports = Report.query.filter_by(
+        reported_content_id=comment.id,
+        content_type='comment'
+    ).all()
+        
+    for report in related_reports:
+        db.session.delete(report)
+        
+    flash("Comment deleted", category="success")
+    db.session.delete(comment)
+    db.session.commit()
+
+    # Redirect logic
+    referrer = request.referrer
+    if referrer and '/profile/' in referrer:
+        profile_username = referrer.split('/profile/')[-1].split('?')[0]
+        return redirect(url_for('profile', username=profile_username))
+
+    return redirect(url_for('view_item', item_id=item_id))
+
 
 @app.route("/edit-comment/<comment_id>", methods=["GET", "POST"])
 def edit_comment(comment_id):
@@ -880,6 +907,7 @@ def view_item(item_id):
         db.joinedload(Item.images),
         db.joinedload(Item.posts)
     ).get_or_404(item_id)
+
     return render_template('view_item.html', item=item)
 
 @app.route("/deleteitem/<int:item_id>",methods=["GET","POST"])
