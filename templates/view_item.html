@@ -14,7 +14,7 @@
                     {% for image in item.images %}
                     <div class="carousel-item {% if loop.first %}active{% endif %}">
                         <img src="{{ url_for('static', filename='itempic/' + image.filename) }}" 
-                             class="d-block w-100 zoomable-image-css " 
+                             class="d-block w-100 " 
                              alt="{{ item.name }}"
                              style="max-height: 500px; object-fit: contain;">
                     </div>
@@ -22,13 +22,13 @@
                       </div>
                       {% if item.images|length > 1 %}
                      <button class="carousel-control-prev" type="button" data-bs-target="#itemCarousel" data-bs-slide="prev">
-                      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                      <span class="visually-hidden">Previous</span>
-                      </button>
-                       <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
+                       <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                       <span class="visually-hidden">Previous</span>
+                     </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
                       <span class="carousel-control-next-icon" aria-hidden="true"></span>
                        <span class="visually-hidden">Next</span>
-                         </button>
+                    </button>
                      {% endif %}
                 </div>
             {% endif %}
@@ -37,7 +37,7 @@
             <div class="card">
                 <div class="card-body">
                     <div class="text-end">
-                      <a href="{{ url_for('delete_item', item_id=item.id) }}" method="POST" class="btn btn-primary">Delete item</a>
+                      <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-primary">Delete item</a>
                     </div>
                     <h2 class="card-title mb-3">{{ item.name }}</h2>
                     {% if item.tags %}
@@ -54,7 +54,7 @@
                     <p class="card-text">{{ item.description }}</p>
                     
                     <!-- Post Section -->
-         <div class="mb-5">
+                 <div class="mb-5">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Reviews</h2>
                     <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary">

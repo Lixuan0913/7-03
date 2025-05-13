@@ -77,7 +77,7 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
-    comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan", passive_deletes=True)
+    comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan")
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
@@ -111,12 +111,12 @@ class Item(db.Model):
     description = db.Column(db.Text)
     images=db.relationship('Item_Image', backref='item', cascade="all, delete-orphan", passive_deletes=True)
     tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
-    posts = db.relationship('Post', backref='item', cascade="all, delete-orphan", passive_deletes=True)
+    posts = db.relationship('Post', backref='item', cascade="all, delete-orphan")
 
 class Feedback(db.Model):  # Add this new class
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id',ondelete="CASCADE"), nullable=False)
     is_helpful = db.Column(db.Boolean, nullable=False)
     
     __table_args__ = (
@@ -291,6 +291,7 @@ def delete_user(email):
         flash("User not found.", "danger")
     return redirect(url_for("signup"))
 
+#create default tags
 def create_tags():
     default_tags=['Lecturer','Facilities','Food']
     existing_tags={tag.name for tag in Tag.query.filter(Tag.name.in_(default_tags)).all()}
@@ -336,7 +337,7 @@ def create_post(item_id):
             else:
                 post = Post(text=text, author=username, ratings=int(ratings), item_id=item.id)
                 db.session.add(post)
-                db.session.flush()  # <--- Flush here to get post.id
+                db.session.flush()  # Flush to get post.id
 
 
                 for file in upload_files:
@@ -372,9 +373,6 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
     else:
-        post.status = 'removed'
-        post.text = "[This post has been removed]"
-        post.ratings = None
 
         for image in post.images:
             try:
@@ -386,6 +384,7 @@ def delete_post(id):
 
         # First delete all comments associated with the post
         Replies.query.filter_by(post_id=post.id).delete()
+        db.session.delete(post) # then delete the post
         # Then delete the post
         db.session.commit()
         flash("Post has been removed", category="success")
@@ -448,9 +447,7 @@ def edit_post(id):
                          except Exception as e:
                            flash(f"Error saving image: {str(e)}", category='danger')
 
-
-            
-            # Handle image deletions
+        # Handle image deletions
         if delete_images:
             for image_id in delete_images:
                 image = Image.query.get(image_id)
@@ -885,14 +882,13 @@ def view_item(item_id):
     ).get_or_404(item_id)
     return render_template('view_item.html', item=item)
 
-@app.route("/deleteitem/<int:item_id>",methods=["GET", "POST"])
-def delete_item(item_id, comment_id):
+@app.route("/deleteitem/<int:item_id>",methods=["GET","POST"])
+def delete_item(item_id):
      item = Item.query.get_or_404(item_id)
-     comment = Replies.query.filter_by(id=comment_id).first()
 
      try:
-        # Delete associated images first
-        for image in item.images:  # This assumes you have a relationship named 'images'
+        # Delete images first
+        for image in item.images: 
             # Delete image file from filesystem
             image_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename)
             try:
@@ -901,10 +897,21 @@ def delete_item(item_id, comment_id):
             except Exception as e:
                 flash(f"Failed to delete image {image.filename}: {str(e)}")
                 # Continue with deletion even if file deletion fails
+
+        #then delete the post image
+        for post in item.posts:
+          # Delete feedback for this post
+          Feedback.query.filter_by(post_id=post.id).delete()
+          for image in post.images:
+            try:
+                post_image_path = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
+                if os.path.exists(post_image_path):
+                    os.remove(post_image_path)
+            except Exception as e:
+                flash(f"Failed to delete post image {image.filename}: {str(e)}", "warning")
         
         # Delete the item itself (which will cascade delete the images from database)
         db.session.delete(item)
-        db.session.delete(comment)
         db.session.commit()
         flash("Item and all associated images deleted successfully", "success")
      except Exception as e:

@@ -185,19 +185,6 @@ body {
     position: relative;
 } 
 
-.nav-button {
-    padding: 8px 12px;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-    text-decoration: none;
-    border-radius: 4px;
-    transition: background-color 0.3s;
-}
-
-.nav-button:hover {
-    background-color: rgba(0, 0, 0, 0.7);
-}
-
 .enlarged-image-container .next-button {
     position: absolute;
     right: 20px;
