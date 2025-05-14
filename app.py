@@ -118,8 +118,8 @@ class Item(db.Model):
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id',ondelete="CASCADE"), nullable=False)
+    reviewer = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False) 
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
     is_helpful = db.Column(db.Boolean, nullable=False)
     
     # Relationship to Users via username
