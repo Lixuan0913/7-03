@@ -628,35 +628,33 @@ def search():
         selected_tags = form.tags.data or []
         item_filter = form.item_filter.data.strip() if form.item_filter.data else ''
 
-        # Debug print
-        print(f"Search params - term: '{search_term}', tags: {selected_tags}, item: '{item_filter}'")
-
-        # Build query
-        posts_query = Post.query.join(Post.item)
+        # Build query for items
+        items_query = Item.query
         
+        # Apply search term filter (searches in item name and description)
         if search_term:
-            posts_query = posts_query.filter(Post.text.ilike(f'%{search_term}%'))
+            items_query = items_query.filter(
+                db.or_(
+                    Item.name.ilike(f'%{search_term}%'),
+                    Item.description.ilike(f'%{search_term}%')
+                )
+            )
         
+        # Apply tag filter
         if selected_tags:
-            posts_query = posts_query.join(Item.tags).filter(Tag.id.in_(selected_tags))
+            items_query = items_query.join(Item.tags).filter(Tag.id.in_(selected_tags))
         
+        # Apply item name filter
         if item_filter:
-            posts_query = posts_query.filter(Item.name.ilike(f'%{item_filter}%'))
+            items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
 
-        # Print the generated SQL for debugging
-        print(str(posts_query))
+        # Get the results
+        items = items_query.order_by(Item.name).all()
         
-        posts = posts_query.order_by(Post.date_posted.desc()).all()
-        
-        # Debug print results
-        print(f"Found {len(posts)} posts")
-        for post in posts:
-            print(f"Post ID: {post.id}, Text: {post.text[:50]}..., Item: {post.item.name}")
-
         return render_template('search.html', 
                             form=form, 
                             searched=search_term, 
-                            posts=posts,
+                            items=items,
                             all_tags=all_tags,
                             selected_tags=selected_tags,
                             item_filter=item_filter)
