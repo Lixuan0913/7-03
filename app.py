@@ -620,107 +620,50 @@ def base():
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     form = SearchForm()
-    
-    if form.validate_on_submit():
-        search_term = form.searched.data.strip()
-        selected_tags = request.form.getlist('tags')  # Get selected tags from form
-        item_filter = request.form.get('item_filter', '').strip()  # Get item filter
-        
-        if search_term or selected_tags or item_filter:
-            # Base query for posts
-            posts_query = Post.query
-            
-            # Apply text search if there's a search term
-            if search_term:
-                posts_query = posts_query.filter(
-                    Post.text.ilike(f'%{search_term}%')
-                )
-                print(f"Searching for: {search_term}")
-            
-            # Apply tag filter if tags are selected
-            if selected_tags:
-                posts_query = posts_query.join(Post.item).join(Item.tags).filter(
-                    Tag.id.in_(selected_tags)
-                )
-                print(f"Filtering by tags: {selected_tags}")
-            
-            # Apply item name filter if provided
-            if item_filter:
-                posts_query = posts_query.join(Post.item).filter(
-                    Item.name.ilike(f'%{item_filter}%')
-                )
-                print(f"Filtering by item: {item_filter}")
-            
-            # Execute the posts query
-            posts = posts_query.order_by(Post.id.desc()).all()
-            print(f"Found {len(posts)} post matches")
-            
-            # Search in comments (only if we're searching by text)
-            comments = []
-            if search_term:
-                comments = Replies.query.filter(
-                    Replies.text.ilike(f'%{search_term}%')
-                ).order_by(Replies.id.desc()).all()
-                print(f"Found {len(comments)} comment matches")
-            
-            # Get all post IDs that have matching comments
-            post_ids_with_matching_comments = {comment.post_id for comment in comments}
-            print(f"Posts with matching comments: {post_ids_with_matching_comments}")
-            
-            # Get posts that have matching comments but didn't match in post text
-            additional_posts = []
-            if search_term and post_ids_with_matching_comments:
-                additional_query = Post.query.filter(
-                    Post.id.in_(post_ids_with_matching_comments)
-                )
-                
-                # Apply tag filter to additional posts if tags are selected
-                if selected_tags:
-                    additional_query = additional_query.join(Post.item).join(Item.tags).filter(
-                        Tag.id.in_(selected_tags)
-                    )
-                
-                # Apply item filter to additional posts if provided
-                if item_filter:
-                    additional_query = additional_query.join(Post.item).filter(
-                        Item.name.ilike(f'%{item_filter}%')
-                    )
-                
-                additional_posts = additional_query.all()
-                print(f"Found {len(additional_posts)} additional posts via comments")
-            
-            # Combine all posts to display (remove duplicates)
-            all_posts = []
-            seen_post_ids = set()
-            for post in posts + additional_posts:
-                if post.id not in seen_post_ids:
-                    all_posts.append(post)
-                    seen_post_ids.add(post.id)
-            
-            print(f"Total posts to display: {len(all_posts)}")
-            
-            # Create a dictionary to organize comments by post ID
-            comments_by_post = {}
-            for comment in comments:
-                if comment.post_id not in comments_by_post:
-                    comments_by_post[comment.post_id] = []
-                comments_by_post[comment.post_id].append(comment)
-            
-            # Get all tags for the filter dropdown
-            all_tags = Tag.query.order_by(Tag.name).all()
-            
-            # Get all unique items that have posts (for item filter dropdown)
-            items_with_posts = db.session.query(Item).join(Item.posts).distinct().order_by(Item.name).all()
-            
-            return render_template('search.html', form=form, searched=search_term, posts=all_posts, comments_by_post=comments_by_post, all_tags=all_tags, items_with_posts=items_with_posts, selected_tags=selected_tags,item_filter=item_filter)
-        else:
-            flash('Please enter a search term or select filters', 'warning')
-            return redirect(url_for('search'))
-    
-    # For GET request, show the search form with filters
     all_tags = Tag.query.order_by(Tag.name).all()
-    items_with_posts = db.session.query(Item).join(Item.posts).distinct().order_by(Item.name).all()
-    return render_template('search.html', form=form, all_tags=all_tags, items_with_posts=items_with_posts)
+    form.tags.choices = [(tag.id, tag.name) for tag in all_tags]
+
+    if form.validate_on_submit():
+        search_term = form.searched.data.strip() if form.searched.data else ''
+        selected_tags = form.tags.data or []
+        item_filter = form.item_filter.data.strip() if form.item_filter.data else ''
+
+        # Debug print
+        print(f"Search params - term: '{search_term}', tags: {selected_tags}, item: '{item_filter}'")
+
+        # Build query
+        posts_query = Post.query.join(Post.item)
+        
+        if search_term:
+            posts_query = posts_query.filter(Post.text.ilike(f'%{search_term}%'))
+        
+        if selected_tags:
+            posts_query = posts_query.join(Item.tags).filter(Tag.id.in_(selected_tags))
+        
+        if item_filter:
+            posts_query = posts_query.filter(Item.name.ilike(f'%{item_filter}%'))
+
+        # Print the generated SQL for debugging
+        print(str(posts_query))
+        
+        posts = posts_query.order_by(Post.date_posted.desc()).all()
+        
+        # Debug print results
+        print(f"Found {len(posts)} posts")
+        for post in posts:
+            print(f"Post ID: {post.id}, Text: {post.text[:50]}..., Item: {post.item.name}")
+
+        return render_template('search.html', 
+                            form=form, 
+                            searched=search_term, 
+                            posts=posts,
+                            all_tags=all_tags,
+                            selected_tags=selected_tags,
+                            item_filter=item_filter)
+    
+    return render_template('search.html', 
+                         form=form, 
+                         all_tags=all_tags)
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
