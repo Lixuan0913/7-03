@@ -590,56 +590,55 @@ def edit_comment(comment_id):
 # Pass Stuff To Navbar
 @app.context_processor
 def base():
-    form = SearchForm()
-    return dict(form=form)
-
+	form = SearchForm()
+	return dict(form=form)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     form = SearchForm()
     all_tags = Tag.query.order_by(Tag.name).all()
+    form.tags.choices = [(tag.id, tag.name) for tag in all_tags]
 
-    # Collect tags from the form field (split by commas if more than one tag is entered)
-    tag_search_term = form.tag_search.data.strip() if form.tag_search.data else ''
+    if form.validate_on_submit():
+        search_term = form.searched.data.strip() if form.searched.data else ''
+        selected_tags = form.tags.data or []
+        item_filter = form.item_filter.data.strip() if form.item_filter.data else ''
 
-    # Build query for items
-    items_query = Item.query
-
-    # Search by item name or description
-    search_term = form.searched.data.strip() if form.searched.data else ''
-    item_filter = form.item_filter.data.strip() if form.item_filter.data else ''
-
-    if search_term:
-        items_query = items_query.filter(
-            db.or_(
-                Item.name.ilike(f'%{search_term}%'),
-                Item.description.ilike(f'%{search_term}%')
+        # Build query for items
+        items_query = Item.query
+        
+        # Apply search term filter (searches in item name and description)
+        if search_term:
+            items_query = items_query.filter(
+                db.or_(
+                    Item.name.ilike(f'%{search_term}%'),
+                    Item.description.ilike(f'%{search_term}%')
+                )
             )
-        )
+        
+        # Apply tag filter
+        if selected_tags:
+            items_query = items_query.join(Item.tags).filter(Tag.id.in_(selected_tags))
+        
+        # Apply item name filter
+        if item_filter:
+            items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
 
-    if tag_search_term:
-        # Split the search term into individual tags (comma-separated, if multiple tags)
-        tags = [tag.strip() for tag in tag_search_term.split(',')]
-
-        # Filter the items by tag names
-        items_query = items_query.join(Item.tags).filter(Tag.name.in_(tags))
-
-    if item_filter:
-        items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
-
-    items = items_query.order_by(Item.name).all()
-
-    return render_template(
-        'search.html',
-        form=form,
-        all_tags=all_tags,
-        tag_search=tag_search_term,
-        searched=search_term,
-        item_filter=item_filter,
-        items=items
-    )
-
+        # Get the results
+        items = items_query.order_by(Item.name).all()
+        
+        return render_template('search.html', 
+                            form=form, 
+                            searched=search_term, 
+                            items=items,
+                            all_tags=all_tags,
+                            selected_tags=selected_tags,
+                            item_filter=item_filter)
     
+    return render_template('search.html', 
+                         form=form, 
+                         all_tags=all_tags)
+
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
     profile_user = Users.query.filter_by(username=username).first()

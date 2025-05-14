@@ -20,14 +20,14 @@
             
             <!-- Tag Filter -->
             <div class="col-12">
-                <label class="form-label">Tags</label>
+                {{ form.tags.label(class="form-label") }}
                 <div class="tag-options">
                     {% for tag in all_tags %}
                     <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox"
-                            name="tags[]" id="tag-{{ tag.id }}"
-                            value="{{ tag.id }}"
-                            {% if tag.id in selected_tags %}checked{% endif %}>
+                        <input class="form-check-input" type="checkbox" 
+                               name="tags" id="tag-{{ tag.id }}" 
+                               value="{{ tag.id }}"
+                               {% if tag.id in selected_tags %}checked{% endif %}>
                         <label class="form-check-label" for="tag-{{ tag.id }}">
                             {{ tag.name }}
                         </label>
