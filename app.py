@@ -408,7 +408,7 @@ def delete_post(id):
         # Then delete the post
         db.session.commit()
         
-        flash("Post has been removed", category="success")
+        flash("Post and its comments have been removed", category="success")
 
      # Check if the referrer is the profile page
     referrer = request.referrer
@@ -946,6 +946,7 @@ def report_post(post_id):
         flash("Please login to report content", category="danger")
         return redirect(url_for('login'))
     
+    # To find the post
     post = Post.query.get_or_404(post_id)
 
     if request.method == 'POST':
@@ -957,8 +958,9 @@ def report_post(post_id):
         else:
             #Checks if user already reported this post
             existing_report = Report.query.filter_by(
-                reporter_id=session['user_id'],
-                reported_content_id=post_id,
+                
+                reporter_id=session['user_id'], # Current logged in session
+                reported_content_id=post_id, # Get reported post id 
                 content_type='post').first()
             
             if existing_report:
