@@ -3,7 +3,6 @@ from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
-from flask_migrate import Migrate
 from datetime import datetime
 import re
 from werkzeug.utils import secure_filename
@@ -25,7 +24,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -52,7 +50,7 @@ class Users(db.Model):
        
     def has_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            user_id=self.id,
+            reviewer=self.username,  
             post_id=post_id,
             is_helpful=True
         ).first()
@@ -60,7 +58,7 @@ class Users(db.Model):
     
     def has_not_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            user_id=self.id,
+            reviewer=self.username,  
             post_id=post_id,
             is_helpful=False
         ).first()
@@ -83,6 +81,10 @@ class Post(db.Model):
     not_helpful_count = db.Column(db.Integer, default=0)    
     item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
     status = db.Column(db.String(20), default='visible')
+    
+    @property
+    def total_feedback_count(self):
+        return self.helpful_count + self.not_helpful_count
 
 class Replies(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -114,15 +116,19 @@ class Item(db.Model):
     tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
     posts = db.relationship('Post', backref='item', cascade="all, delete-orphan")
 
-class Feedback(db.Model):  # Add this new class
+class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id',ondelete="CASCADE"), nullable=False)
     is_helpful = db.Column(db.Boolean, nullable=False)
     
+    # Relationship to Users via username
+    user = db.relationship('Users', backref='feedbacks', foreign_keys=[reviewer])
+    
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),
+        db.UniqueConstraint('reviewer', 'post_id', name='_user_post_uc'),
     )
+
     
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -142,7 +148,7 @@ class ProfanityFilter:
             'shit', 'fuck', 'asshole', 'bitch', 'cunt',
             'dick', 'pussy', 'bastard', 'whore', 'slut',
             'fag', 'nigger', 'retard', 'damn', 'hell',
-            'suck', 'nigga', 'fucking', 'ass'
+            'suck', 'nigga', 'fucking', 'ass', 'cibai'
         ]
         
         # Create variations with common misspellings
@@ -617,32 +623,71 @@ def search():
     
     if form.validate_on_submit():
         search_term = form.searched.data.strip()
-        if search_term:
-            # Debug: Print search term
-            print(f"Searching for: {search_term}")
+        selected_tags = request.form.getlist('tags')  # Get selected tags from form
+        item_filter = request.form.get('item_filter', '').strip()  # Get item filter
+        
+        if search_term or selected_tags or item_filter:
+            # Base query for posts
+            posts_query = Post.query
             
-            # Search in posts
-            posts = Post.query.filter(
-                Post.text.ilike(f'%{search_term}%')
-            ).order_by(Post.id.desc()).all()
+            # Apply text search if there's a search term
+            if search_term:
+                posts_query = posts_query.filter(
+                    Post.text.ilike(f'%{search_term}%')
+                )
+                print(f"Searching for: {search_term}")
+            
+            # Apply tag filter if tags are selected
+            if selected_tags:
+                posts_query = posts_query.join(Post.item).join(Item.tags).filter(
+                    Tag.id.in_(selected_tags)
+                )
+                print(f"Filtering by tags: {selected_tags}")
+            
+            # Apply item name filter if provided
+            if item_filter:
+                posts_query = posts_query.join(Post.item).filter(
+                    Item.name.ilike(f'%{item_filter}%')
+                )
+                print(f"Filtering by item: {item_filter}")
+            
+            # Execute the posts query
+            posts = posts_query.order_by(Post.id.desc()).all()
             print(f"Found {len(posts)} post matches")
             
-            # Search in comments
-            comments = Replies.query.filter(
-                Replies.text.ilike(f'%{search_term}%')
-            ).order_by(Replies.id.desc()).all()
-            print(f"Found {len(comments)} comment matches")
+            # Search in comments (only if we're searching by text)
+            comments = []
+            if search_term:
+                comments = Replies.query.filter(
+                    Replies.text.ilike(f'%{search_term}%')
+                ).order_by(Replies.id.desc()).all()
+                print(f"Found {len(comments)} comment matches")
             
             # Get all post IDs that have matching comments
             post_ids_with_matching_comments = {comment.post_id for comment in comments}
             print(f"Posts with matching comments: {post_ids_with_matching_comments}")
             
             # Get posts that have matching comments but didn't match in post text
-            additional_posts = Post.query.filter(
-                Post.id.in_(post_ids_with_matching_comments),
-                ~Post.id.in_([post.id for post in posts])
-            ).all()
-            print(f"Found {len(additional_posts)} additional posts via comments")
+            additional_posts = []
+            if search_term and post_ids_with_matching_comments:
+                additional_query = Post.query.filter(
+                    Post.id.in_(post_ids_with_matching_comments)
+                )
+                
+                # Apply tag filter to additional posts if tags are selected
+                if selected_tags:
+                    additional_query = additional_query.join(Post.item).join(Item.tags).filter(
+                        Tag.id.in_(selected_tags)
+                    )
+                
+                # Apply item filter to additional posts if provided
+                if item_filter:
+                    additional_query = additional_query.join(Post.item).filter(
+                        Item.name.ilike(f'%{item_filter}%')
+                    )
+                
+                additional_posts = additional_query.all()
+                print(f"Found {len(additional_posts)} additional posts via comments")
             
             # Combine all posts to display (remove duplicates)
             all_posts = []
@@ -661,17 +706,21 @@ def search():
                     comments_by_post[comment.post_id] = []
                 comments_by_post[comment.post_id].append(comment)
             
-            return render_template('search.html',
-                               form=form,
-                               searched=search_term,
-                               posts=all_posts,
-                               comments_by_post=comments_by_post)
+            # Get all tags for the filter dropdown
+            all_tags = Tag.query.order_by(Tag.name).all()
+            
+            # Get all unique items that have posts (for item filter dropdown)
+            items_with_posts = db.session.query(Item).join(Item.posts).distinct().order_by(Item.name).all()
+            
+            return render_template('search.html', form=form, searched=search_term, posts=all_posts, comments_by_post=comments_by_post, all_tags=all_tags, items_with_posts=items_with_posts, selected_tags=selected_tags,item_filter=item_filter)
         else:
-            flash('Please enter a search term', 'warning')
+            flash('Please enter a search term or select filters', 'warning')
             return redirect(url_for('search'))
     
-    flash('Please enter a search term first', 'info')
-    return redirect(url_for('home'))
+    # For GET request, show the search form with filters
+    all_tags = Tag.query.order_by(Tag.name).all()
+    items_with_posts = db.session.query(Item).join(Item.posts).distinct().order_by(Item.name).all()
+    return render_template('search.html', form=form, all_tags=all_tags, items_with_posts=items_with_posts)
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
@@ -772,12 +821,12 @@ def feedback(post_id, action):
         flash("Please login to provide feedback", "danger")
         return redirect(url_for('login'))
     
-    user = Users.query.filter_by(username=session["user"]).first()
+    username = session["user"]  # Get username directly from session
     post = Post.query.get_or_404(post_id)
     
-    # Check if user already gave feedback
+    # Check if user already gave feedback 
     existing_feedback = Feedback.query.filter_by(
-        user_id=user.id,
+        reviewer=username,
         post_id=post_id
     ).first()
     
@@ -795,7 +844,7 @@ def feedback(post_id, action):
         else:
             # New helpful vote
             post.helpful_count += 1
-            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=True)
+            feedback = Feedback(reviewer=username, post_id=post_id, is_helpful=True)
             db.session.add(feedback)
     
     elif action == "not-helpful":
@@ -812,11 +861,10 @@ def feedback(post_id, action):
         else:
             # New not helpful vote
             post.not_helpful_count += 1
-            feedback = Feedback(user_id=user.id, post_id=post_id, is_helpful=False)
+            feedback = Feedback(author=username, post_id=post_id, is_helpful=False)
             db.session.add(feedback)
     
     db.session.commit()
-    
     return redirect(request.referrer or url_for('home'))
 
 @app.route("/additem", methods=["GET", "POST"])
