@@ -150,6 +150,15 @@
                                                     <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
                                                 </ul>
                                             </div>
+                                            {% else %}
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
+                                                </ul>
+                                            </div>
                                             {% endif %}
                                         </div>
                                     </div>
