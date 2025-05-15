@@ -390,7 +390,6 @@ def delete_post(id):
         flash("You don't have permission to delete this post.", category="danger")
     else:
         post.status = 'removed'
-        post.text = "[This post has been deleted]"
         post.ratings = None
         
         for image in post.images:
