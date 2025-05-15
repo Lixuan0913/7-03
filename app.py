@@ -443,6 +443,7 @@ def edit_post(id):
         else:
             if profanity_filter.contains_profanity(text):
                 flash("Your comment contains inappropriate language and cannot be posted", category="danger")
+                return render_template('edit_post.html', post=post)
             else:
                 post.text = text
                 post.ratings = int(ratings) if ratings else None
