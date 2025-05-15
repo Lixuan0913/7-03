@@ -12,7 +12,6 @@
                         <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold">{{post.author}}</a>
                     </div>
                     
-                    {% if session['user'] == post.author %}
                     <div class="dropdown">
                         <button class="btn btn-sm p-0 border-0 bg-transparent" 
                                 type="button" 
@@ -20,14 +19,19 @@
                                 aria-expanded="false">
                             <i class="fas fa-ellipsis-v text-muted"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
-                            <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
-                        </ul>
+                        {% if session['user'] == post.author %}
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
+                                <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
+                            </ul>
+                        {% else %}
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
+                            </ul>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
                 
                 <a href="{{ url_for('view_post', post_id=post.id, item_id=item.id) }}" style="text-decoration: none;">
@@ -50,7 +54,6 @@
                     <!-- Post Content -->
                     <div class="card-text mb-3">{{ post.text }}</div>
 
-                    <!-- Images -->
                     <!-- Images -->
                     {% if post.images %}
                         <div class="image-gallery">
