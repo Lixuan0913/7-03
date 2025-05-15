@@ -902,43 +902,52 @@ def view_item(item_id):
 
     return render_template('view_item.html', item=item)
 
-@app.route("/deleteitem/<int:item_id>",methods=["GET","POST"])
+@app.route("/deleteitem/<int:item_id>", methods=["GET", "POST"])
 def delete_item(item_id):
-     item = Item.query.get_or_404(item_id)
+    item = Item.query.get_or_404(item_id)
 
-     try:
-        # Delete images first
-        for image in item.images: 
-            # Delete image file from filesystem
+    try:
+        # Delete item images
+        for image in item.images:
             image_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename)
             try:
                 if os.path.exists(image_path):
                     os.remove(image_path)
             except Exception as e:
                 flash(f"Failed to delete image {image.filename}: {str(e)}")
-                # Continue with deletion even if file deletion fails
 
-        #then delete the post image
+        # Delete associated posts, post images, feedback, and reports
         for post in item.posts:
-          # Delete feedback for this post
-          Feedback.query.filter_by(post_id=post.id).delete()
-          for image in post.images:
-            try:
-                post_image_path = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
-                if os.path.exists(post_image_path):
-                    os.remove(post_image_path)
-            except Exception as e:
-                flash(f"Failed to delete post image {image.filename}: {str(e)}", "warning")
-        
-        # Delete the item itself (which will cascade delete the images from database)
+            # Delete feedback
+            Feedback.query.filter_by(post_id=post.id).delete()
+
+            # Delete post images
+            for image in post.images:
+                try:
+                    post_image_path = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
+                    if os.path.exists(post_image_path):
+                        os.remove(post_image_path)
+                except Exception as e:
+                    flash(f"Failed to delete post image {image.filename}: {str(e)}", "warning")
+
+            # Delete reports related to this post
+            Report.query.filter_by(content_type='post', reported_content_id=post.id).delete()
+
+            # Delete reports related to comments under this post (if applicable)
+            for comment in post.comments:
+                Report.query.filter_by(content_type='comment', reported_content_id=comment.id).delete()
+
+        # Delete the item (will cascade-delete posts, images, comments if relationships are set with cascade)
         db.session.delete(item)
         db.session.commit()
-        flash("Item and all associated images deleted successfully", "success")
-     except Exception as e:
+
+        flash("Item and all associated content deleted successfully", "success")
+    except Exception as e:
         db.session.rollback()
         flash(f"Error deleting item: {str(e)}", "danger")
-        
-     return redirect(url_for('home'))
+
+    return redirect(url_for('home'))
+
 
 @app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
 def report_post(post_id):
