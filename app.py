@@ -1,4 +1,3 @@
-
 from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -34,12 +33,13 @@ class Users(db.Model):
     identity=db.Column(db.String(20),nullable=False)
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
 
     def __init__(self,email,username,password):
         self.email=email
         self.username=username
         self.password=password
-      
+        
         self.identity=self.get_identity()
 
     def get_identity(self):
@@ -47,6 +47,9 @@ class Users(db.Model):
            return "lecturer"
         if self.email.endswith("@student.mmu.edu.my"):
            return "student"
+        if self.email.endswith("@admin.mmu.edu.my"):
+            self.is_admin = True
+            return "admin"
        
     def has_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
@@ -202,49 +205,51 @@ def database():
 @app.route("/signup",methods=["GET","POST"])
 def signup():
     if request.method == "POST":
-      email=request.form["email"]
-      username=request.form["username"]
-      actual_password=request.form["password"]
-      confirm_password=request.form["confirm-password"]
-      
-
-      
-      if not email  or not username  or not actual_password:
+        email=request.form["email"]
+        username=request.form["username"]
+        actual_password=request.form["password"]
+        confirm_password=request.form["confirm-password"]
+            
+        if not email  or not username  or not actual_password:
            flash("Please fill out all field")
            return redirect(url_for("signup"))
       
-      pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my)$'
+        pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my|admin\.mmu\.edu\.my)$'
 
-      if not re.match(pattern,email):
-          flash("Please use mmu email")
-          return redirect(url_for("signup"))
-         
-      if actual_password != confirm_password:
-          flash("Passwords does not match","danger")
-          return redirect(url_for("signup"))
-         
-      existing_user = Users.query.filter_by(username=username).first()
-      if existing_user:
-         flash("User already exist", "danger")
-         return redirect(url_for("signup"))
-      
-      try:
-        user = Users(
-            email=email,
-            username=username,
-            password=generate_password_hash(actual_password,method="pbkdf2:sha256")
-            )
-        db.session.add(user)
-        db.session.commit()
-        flash("Signup successful!", "success")
-        return redirect(url_for("login"))
-      
-      except Exception as e:
-         db.session.rollback()
-         flash("Error while saving to database: " + str(e), "danger")
-         return redirect(url_for("signup"))
+        if not re.match(pattern, email):
+            flash("Please use a valid MMU email address", "danger")
+            return redirect(url_for("signup"))
 
-    
+        if actual_password != confirm_password:
+            flash("Passwords do not match", "danger")
+            return redirect(url_for("signup"))
+
+        existing_user = Users.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists", "danger")
+            return redirect(url_for("signup"))
+
+        existing_email = Users.query.filter_by(email=email).first()
+        if existing_email:
+            flash("Email already registered", "danger")
+            return redirect(url_for("signup"))
+      
+        try:
+            user = Users(
+                email=email,
+                username=username,
+                password=generate_password_hash(actual_password,method="pbkdf2:sha256")
+                )
+            db.session.add(user)
+            db.session.commit()
+            flash("Signup successful!", "success")
+            return redirect(url_for("login"))
+      
+        except Exception as e:
+            db.session.rollback()
+            flash("Error while saving to database: " + str(e), "danger")
+            return redirect(url_for("signup"))
+
     return render_template("Signup.html")
 @app.context_processor
 def inject_current_user():
@@ -1029,6 +1034,155 @@ def report_comment(comment_id):
     
     return render_template('report_form.html', content=comment, content_type="comment")
 
+@app.route('/admin')
+def admin_dashboard():
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    # Display total users, reports, and posts
+    total_users = Users.query.count()
+    total_posts = Post.query.count()
+    total_reports = Report.query.count()
+
+    recent_reports = Report.query.order_by(Report.id.desc()).limit(5).all()
+
+    return render_template('admin_dashboard.html', total_users=total_users, total_posts=total_posts, total_reports=total_reports, recent_reports=recent_reports)
+
+@app.route('/admin/users')
+def admin_users():
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    users = Users.query.order_by(Users.username).all()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/reports')
+def admin_reports():
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    reports = Report.query.order_by(Report.id.desc()).all()
+    return render_template('admin_reports.html', reports=reports)
+        
+@app.route('/admin/toggle-admin/<int:user_id>')
+def toggle_admin(user_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    user = Users.query.get_or_404(user_id)
+    if user_id == current_user.id:
+        flash("You cannot modify your own admin status", category="warning")
+        return redirect(url_for('home'))
+    else:
+        user.is_admin = not user.is_admin
+        db.session.commit()
+        status = "granted" if user.is_admin else "revoked"
+        flash(f"Admin privileges {status} for {user.username}", category='success')
+    
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/delete-user/<int:user_id>')
+def admin_delete_user(user_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    user = Users.query.get_or_404(user_id)
+    if user_id == current_user.id:
+        flash("You cannot delete yourself", category="danger")
+    else:
+        try:
+            db.session.delete(user)
+            db.session.commit()
+            flash(f"User {user.username} deleted successfully", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting user: {str(e)}", "danger")
+        
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/hide-content/<content_type>/<int:content_id>')
+def admin_hide_content(content_type, content_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    if content_type == 'post':
+        content = Post.query.get_or_404(content.id)
+        content.status = 'removed'
+    elif content_type == 'comment':
+        content = Replies.query.get_or_404(content.id)
+        content.status = 'removed'
+    else:
+        flash("Invalid content type", category="danger")
+        return redirect(url_for("admin_dashboard"))
+    
+    db.session.commit()
+    flash("Content has been hidden", category='success')
+
+    Report.query.filter_by(
+        content_type=content_type,
+        reported_content_id=content_id
+    ).delete()
+    db.session.commit()
+
+    return redirect(url_for("admin_dashboard"))
+
+@app.route('/admin/restore-content/<content_type>/<int:content_id>')
+def admin_restore_content(content_type, content_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+    
+    if content_type == 'post':
+        Post.status = 'visible'
+        flash("Post has been restored", category="success")
+    elif content_type == 'comment':
+        Replies.status = 'visible'
+        flash("Comment has been restored", category="success")
+    else:
+        flash("Invalid content type", category='danger')
+    
+    return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request

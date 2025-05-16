@@ -1,0 +1,43 @@
+{% extends "admin_base.html" %}
+
+{% block admin_content %}
+<h2>Content Reports</h2>
+<div class="table-responsive mt-4">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Reporter</th>
+                <th>Content</th>
+                <th>Reason</th>
+                <th>Details</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.id }}</td>
+                <td>{{ report.content_type }}</td>
+                <td>{{ report.reporter.username }}</td>
+                <td>
+                    {% if report.content_type == 'post' %}
+                        Post #{{ report.reported_content_id }}
+                    {% else %}
+                        Comment #{{ report.reported_content_id }}
+                    {% endif %}
+                </td>
+                <td>{{ report.reason }}</td>
+                <td>{{ report.details|default('', true) }}</td>
+                <td>
+                    <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
+                       class="btn btn-sm btn-danger">Hide Content</a>
+                    <a href="#" class="btn btn-sm btn-secondary">Dismiss</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
