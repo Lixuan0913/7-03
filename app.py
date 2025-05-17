@@ -276,6 +276,7 @@ def login():
          if check_password_hash(found_user.password,password):
             session["user"]=found_user.username
             session["user_id"] = found_user.id
+            session['identity'] = found_user.identity
             flash("Login Successful","success")
             return redirect(url_for("home"))
          else:
@@ -332,7 +333,13 @@ def create_post(item_id):
     if not user:
         flash("User not found", category="danger")
         return redirect(url_for("login"))
-
+    
+    # Check if user is lecturer and item has lecturer tag
+    lecturer_tag = Tag.query.filter_by(name="Lecturer").first()
+    if user.identity == "lecturer" and lecturer_tag in item.tags:
+        flash("Lecturers are not allowed to create posts on lecturer tagged items", category="danger")
+        return redirect(url_for('view_item', item_id=item.id))
+    
     if request.method == "POST":
         text = request.form.get('text', '').strip()
         ratings = request.form.get('ratings')
@@ -904,8 +911,10 @@ def view_item(item_id):
         db.joinedload(Item.images),
         db.joinedload(Item.posts)
     ).get_or_404(item_id)
+    
+    user_identity = session.get('identity')
 
-    return render_template('view_item.html', item=item)
+    return render_template('view_item.html', item=item,user_identity=user_identity)
 
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):

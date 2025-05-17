@@ -9,7 +9,15 @@
                             src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
                             alt="{{ post.author }}'s profile image" 
                             style="height: 40px; width: 40px; object-fit: cover;">
-                        <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold">{{post.author}}</a>
+                        <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold me-1">{{post.author}}</a>
+                        <!--Identity badge-->
+                        <span class="badge 
+                            {% if post.users.identity == 'student' %}bg-primary
+                            {% elif post.users.identity == 'lecturer' %}bg-success
+                            {% elif post.users.identity == 'admin' %}bg-danger
+                            {% else %}bg-secondary{% endif %} ms-1">
+                         {{ post.users.identity }}
+                        </span>
                     </div>
                     
                     <div class="dropdown">
@@ -36,6 +44,7 @@
                 
                 <a href="{{ url_for('view_post', post_id=post.id, item_id=item.id) }}" style="text-decoration: none;">
                 <div class="card-body">
+                    
                     <!-- Star Rating Display -->
                     <div class="mb-3">
                         {% if post.ratings is not none %}
@@ -49,10 +58,10 @@
                         {% endif %}
                     </div>
 
-                    <p class="text-muted small mb-0">{{ post.date_posted.strftime('%b %d, %Y') }}</p>
-                    
-                    <!-- Post Content -->
+                     <!-- Post Content -->
                     <div class="card-text mb-3">{{ post.text }}</div>
+
+                    <p class="text-muted small mb-0">{{ post.date_posted.strftime('%b %d, %Y') }}</p>
 
                     <!-- Images -->
                     {% if post.images %}
