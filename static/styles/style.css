@@ -95,6 +95,17 @@ body {
     margin: 0 auto; 
 }
 
+.edit_item {
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    width: 600px; 
+    height:auto;
+    padding: 25px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 0 auto; 
+}
+
 
 .login{
     border: 2px solid #e0e0e0;
@@ -283,3 +294,9 @@ body {
 .post-separator {
   margin-bottom: 20px; /* Adjust the value as needed */
 }
+
+.image-container {
+        display: flex;          
+        gap: 10px;             
+        flex-wrap: wrap;       
+    }

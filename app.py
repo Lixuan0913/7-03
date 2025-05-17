@@ -903,6 +903,123 @@ def view_item(item_id):
 
     return render_template('view_item.html', item=item)
 
+@app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
+def edit_item(item_id):
+    item=Item.query.get_or_404(item_id)
+
+    default_tags = Tag.query.filter_by(is_default=True).all()
+
+    # Get tags already associated with this item
+    item_tags = item.tags
+    item_tag_ids = {tag.id for tag in item_tags}  # Using set for faster lookup
+    
+    # Separate custom tags (non-default ones)
+    custom_tags = [tag.name for tag in item_tags if not tag.is_default]
+    custom_tags_str = ", ".join(custom_tags)
+
+    if not item:
+        flash("Item not found")
+        return redirect(url_for('add_item',item_id=item_id))
+    
+    if request.method == "POST":
+        # Get form data
+        name = request.form.get("name")
+        description = request.form.get("description")
+        upload_image = request.files.getlist("picture")
+        delete_image=request.form.getlist("delete_images")
+
+        # Handle default tags
+        selected_tag_ids = request.form.getlist("default_tags")  # getlist for multiple values
+        selected_tag_ids = [int(id) for id in selected_tag_ids]
+
+        # Handle custom tags
+        custom_tags_input = request.form.get("custom_tags", "").strip()
+        new_custom_tags = [t.strip() for t in custom_tags_input.split(",") if t.strip()]
+        
+        try:
+            
+            item.name = name
+            item.description = description
+            
+            # Update default tags
+            current_tag_ids = {tag.id for tag in item.tags}
+            
+            # Tags to remove
+            tags_to_remove = current_tag_ids - set(selected_tag_ids)
+            for tag_id in tags_to_remove:
+                tag = Tag.query.get(tag_id)
+                if tag and tag.is_default:  # Only remove default tags
+                    item.tags.remove(tag)
+            
+            # Tags to add
+            tags_to_add = set(selected_tag_ids) - current_tag_ids
+            for tag_id in tags_to_add:
+                tag = Tag.query.get(tag_id)
+                if tag:
+                    item.tags.append(tag)
+            
+            # Handle custom tags
+            existing_custom_tags = {tag.name.lower(): tag for tag in item.tags if not tag.is_default}
+            
+            # Remove custom tags not in new input
+            for tag_name, tag in existing_custom_tags.items():
+                if tag_name not in [t.lower() for t in new_custom_tags]:
+                    item.tags.remove(tag)
+            
+            # Add new custom tags
+            for tag_name in new_custom_tags:
+                if tag_name.lower() not in existing_custom_tags:
+                    # Find or create the tag
+                    tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
+                    if not tag:
+                        tag = Tag(name=tag_name, is_default=False)
+                        db.session.add(tag)
+                    item.tags.append(tag)
+
+            # Handle image uploads
+            if upload_image:
+              for file in upload_image:
+                if file.filename != '':
+                    # Save the file
+                    filename = secure_filename(file.filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Generate a unique filename to prevent collisions
+                         filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                         file_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], filename)
+
+                         try:
+                              file.save(file_path)
+                              # Create image record in database
+                              image = Item_Image(filename=filename, item_id=item_id)
+                              db.session.add(image)
+                         except Exception as e:
+                           flash(f"Error saving image: {str(e)}", category='danger')
+
+            # Handle image deletions
+            if delete_image:
+               for image_id in delete_image:
+                image = Item_Image.query.get(int(image_id))
+                if image and image.item_id == item.id:  
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Delete from database
+                    db.session.delete(image)
+
+            db.session.commit()
+            flash("Item updated successfully!", 'success')
+            return redirect(url_for('view_item', item_id=item.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating item: {str(e)}", "error")
+
+    return render_template("edit_item.html",item=item,default_tags=default_tags,item_tag_ids=item_tag_ids,custom_tags_str=custom_tags_str)
+
+
+
 @app.route("/deleteitem/<int:item_id>",methods=["GET","POST"])
 def delete_item(item_id):
      item = Item.query.get_or_404(item_id)
