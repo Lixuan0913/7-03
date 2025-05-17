@@ -1,0 +1,60 @@
+{% extends "admin_base.html" %}
+
+{% block admin_content %}
+<h2>Admin Dashboard</h2>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Users</h5>
+                <p class="card-text display-4">{{ total_users }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Posts</h5>
+                <p class="card-text display-4">{{ total_posts }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-danger mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Open Reports</h5>
+                <p class="card-text display-4">{{ total_reports }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h3 class="mt-4">Recent Reports</h3>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Reporter</th>
+                <th>Reason</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in recent_reports %}
+            <tr>
+                <td>{{ report.id }}</td>
+                <td>{{ report.content_type }}</td>
+                <td>{{ report.reporter.username }}</td>
+                <td>{{ report.reason }}</td>
+                <td>
+                    <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
+                       class="btn btn-sm btn-danger">Hide Content</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
