@@ -144,6 +144,13 @@
                                                 <div>
                                                     <div>
                                                         <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
+                                                        <span class="badge 
+                                                           {% if comment.users.identity == 'student' %}bg-primary
+                                                            {% elif comment.users.identity == 'lecturer' %}bg-success
+                                                              {% elif comment.users.identity == 'admin' %}bg-danger
+                                                            {% else %}bg-secondary{% endif %} ms-1">
+                                                           {{ comment.users.identity }}
+                                                           </span>
                                                     </div>
                                                     <div class="small">{{comment.text}}</div>
                                                 </div>

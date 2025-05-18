@@ -13,6 +13,14 @@
             <div class="d-flex align-items-center">
             <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px;">
             <a href="/profile/{{post.author}}" class="text-decoration-none">{{post.author}}</a>
+            <!--Identity badge-->
+            <span class="badge 
+            {% if post.users.identity == 'student' %}bg-primary
+            {% elif post.users.identity == 'lecturer' %}bg-success
+            {% elif post.users.identity == 'admin' %}bg-danger
+           {% else %}bg-secondary{% endif %} ms-1">
+            {{ post.users.identity }}
+            </span>
             </div>
             <small class="text-muted">Posted on {{ post.date_posted.strftime('%Y-%m-%d') }}</small>
             </div>
@@ -135,6 +143,14 @@
                                     <div>
                                         <div>
                                             <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
+                                            <!--Identity badge-->
+                                            <span class="badge 
+                                             {% if comment.users.identity == 'student' %}bg-primary
+                                             {% elif comment.users.identity == 'lecturer' %}bg-success
+                                            {% elif comment.users.identity == 'admin' %}bg-danger
+                                             {% else %}bg-secondary{% endif %} ms-1">
+                                            {{ comment.users.identity }}
+                                        </span>
                                         </div>
                                         <div class="small">{{comment.text}}</div>
                                     </div>
