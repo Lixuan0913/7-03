@@ -11,7 +11,8 @@
              </div>
             <div>
             <div class="d-flex align-items-center">
-            <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" alt="{{ post.author }}'s profile image" style="height: 40px; width: 40px;">
+            <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile/pics/' + (post.users.image_file if post.users else 'default.jpg')) }}" alt="{{ post.author if post.users else 'Deleted User' }}'s profile image" style="height: 40px; width: 40px;">
+            {% if post.users %}
             <a href="/profile/{{post.author}}" class="text-decoration-none">{{post.author}}</a>
             <!--Identity badge-->
             <span class="badge 
@@ -23,6 +24,9 @@
             </span>
             </div>
             <small class="text-muted">Posted on {{ post.date_posted.strftime('%Y-%m-%d') }}</small>
+            {% else %}
+         <span class="text-muted">Deleted User</span>
+              {% endif %}
             </div>
         </div>
         <div class="card-body">
@@ -142,16 +146,20 @@
                                          style="height: 30px; width: 30px; object-fit: cover;">
                                     <div>
                                         <div>
+                                             {% if comment.users %}
                                             <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
                                             <!--Identity badge-->
-                                            <span class="badge 
-                                             {% if comment.users.identity == 'student' %}bg-primary
-                                             {% elif comment.users.identity == 'lecturer' %}bg-success
-                                            {% elif comment.users.identity == 'admin' %}bg-danger
-                                             {% else %}bg-secondary{% endif %} ms-1">
-                                            {{ comment.users.identity }}
+                                          <span class="badge 
+                                          {% if comment.users.identity == 'student' %}bg-primary
+                                         {% elif comment.users.identity == 'lecturer' %}bg-success
+                                        {% elif comment.users.identity == 'admin' %}bg-danger
+                                          {% else %}bg-secondary{% endif %} ms-1">
+                                           {{ comment.users.identity }}
                                         </span>
-                                        </div>
+                                    {% else %}
+                                   <span class="text-muted">Deleted User</span>
+                                   {% endif %}
+                               </div>
                                         <div class="small">{{comment.text}}</div>
                                     </div>
                                 </div>

@@ -6,9 +6,10 @@
                 <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <div class="d-flex align-items-center">
                         <img class="rounded-circle me-2" 
-                            src="{{ url_for('static', filename='profile/pics/' + post.users.image_file) }}" 
+                            src="{{ url_for('static', filename='profile/pics/' + (post.users.image_file if post.users else 'default.jpg')) }}"  
                             alt="{{ post.author }}'s profile image" 
                             style="height: 40px; width: 40px; object-fit: cover;">
+                        {% if post.users %}
                         <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold me-1">{{post.author}}</a>
                         <!--Identity badge-->
                         <span class="badge 
@@ -18,6 +19,9 @@
                             {% else %}bg-secondary{% endif %} ms-1">
                          {{ post.users.identity }}
                         </span>
+                        {% else %}
+                        <span class="text-decoration-none fw-bold me-1 text-muted">Deleted User</span>
+                      {% endif %}
                     </div>
                     
                     <div class="dropdown">
@@ -138,11 +142,12 @@
                                         <div class="d-flex justify-content-between">
                                             <div class="d-flex align-items-start">
                                                 <img class="rounded-circle me-2" 
-                                                     src="{{ url_for('static', filename='profile/pics/' + comment.users.image_file) }}" 
-                                                     alt="{{ comment.author }}'s profile image" 
+                                                     src="{{ url_for('static', filename='profile/pics/' + (comment.users.image_file if comment.users else 'default.jpg')) }}" 
+                                                     alt="{{ comment.author if comment.users else 'Deleted User' }}'s profile image" 
                                                      style="height: 30px; width: 30px; object-fit: cover;">
                                                 <div>
                                                     <div>
+                                                        {% if comment.users %}
                                                         <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
                                                         <span class="badge 
                                                            {% if comment.users.identity == 'student' %}bg-primary
@@ -151,6 +156,9 @@
                                                             {% else %}bg-secondary{% endif %} ms-1">
                                                            {{ comment.users.identity }}
                                                            </span>
+                                                           {% else %}
+                                                           <span class="text-muted">Deleted User</span>
+                                                        {% endif %}
                                                     </div>
                                                     <div class="small">{{comment.text}}</div>
                                                 </div>

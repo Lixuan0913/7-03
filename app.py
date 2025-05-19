@@ -909,7 +909,8 @@ def add_item():
 def view_item(item_id):
     item = Item.query.options(
         db.joinedload(Item.images),
-        db.joinedload(Item.posts)
+        db.joinedload(Item.posts).joinedload(Post.users),
+        db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
     ).get_or_404(item_id)
     
     user_identity = session.get('identity')
