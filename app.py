@@ -95,6 +95,7 @@ class Replies(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
     status = db.Column(db.String(20), default="visible")
+    
 
 item_tags = db.Table('item_tags',
     db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
@@ -1253,20 +1254,37 @@ def admin_delete_user(user_id):
     if not current_user or not current_user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
+
     user = Users.query.get_or_404(user_id)
     if user_id == current_user.id:
         flash("You cannot delete yourself", category="danger")
-    else:
-        try:
-            db.session.delete(user)
-            db.session.commit()
-            flash(f"User {user.username} deleted successfully", "success")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error deleting user: {str(e)}", "danger")
-        
+        return redirect(url_for('admin_users'))
+
+    try:
+        # Delete user's comments
+        Replies.query.filter_by(author=user.username).delete()
+
+        # Delete user's posts and their comments
+        posts = Post.query.filter_by(author=user.username).all()
+        for post in posts:
+            Replies.query.filter_by(post_id=post.id).delete()
+            db.session.delete(post)
+
+        # Delete reports made by this user
+        Report.query.filter_by(reporter_id=user.id).delete()
+
+        # Finally, delete the user
+        db.session.delete(user)
+        db.session.commit()
+
+        flash(f"User {user.username} and all their content deleted successfully", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting user: {str(e)}", "danger")
+
     return redirect(url_for('admin_users'))
+
 
 @app.route('/admin/hide-content/<content_type>/<int:content_id>')
 def admin_hide_content(content_type, content_id):
@@ -1280,10 +1298,13 @@ def admin_hide_content(content_type, content_id):
         return redirect(url_for('home'))
     
     if content_type == 'post':
-        content = Post.query.get_or_404(content.id)
+        content = Post.query.get_or_404(content_id)
         content.status = 'removed'
+        for comment in content.comments:
+            comment.status = 'removed'
+
     elif content_type == 'comment':
-        content = Replies.query.get_or_404(content.id)
+        content = Replies.query.get_or_404(content_id)
         content.status = 'removed'
     else:
         flash("Invalid content type", category="danger")
@@ -1321,6 +1342,24 @@ def admin_restore_content(content_type, content_id):
         flash("Invalid content type", category='danger')
     
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/dismiss-report/<int:report_id>')
+def admin_dismiss_report(report_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+
+    report = Report.query.get_or_404(report_id)
+    db.session.delete(report)
+    db.session.commit()
+
+    flash("Report has been dismissed", "info")
+    return redirect(url_for('admin_reports'))  # or wherever you want to return
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
