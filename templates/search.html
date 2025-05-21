@@ -2,41 +2,42 @@
 
 {% block content %}
 <div class="container mt-4">
-    <form method="POST" action="{{ url_for('search') }}" class="mb-4">
-        {{ form.hidden_tag() }}
+    <form method="GET" action="{{ url_for('search') }}" class="mb-4">
+    {{ form.hidden_tag() }}
+    
+    <div class="row g-3">
+        <!-- Search Term -->
+        <div class="col-md-6">
+            <label for="searched" class="form-label">Search</label>
+            <input type="text" class="form-control" id="searched" name="searched" 
+                   placeholder="Search items..." value="{{ searched or '' }}">
+        </div>
         
-        <div class="row g-3">
-            <!-- Search Term -->
-            <div class="col-md-6">
-                {{ form.searched.label(class="form-label") }}
-                {{ form.searched(class="form-control", placeholder="Search items...") }}
-            </div>
-            
-            <!-- Tag Filter -->
-            <div class="col-12">
-                {{ form.tags.label(class="form-label") }}
-                <div class="tag-options">
-                    {% for tag in all_tags %}
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" 
-                               name="tags" id="tag-{{ tag.id }}" 
-                               value="{{ tag.id }}"
-                               {% if tag.id in selected_tags %}checked{% endif %}>
-                        <label class="form-check-label" for="tag-{{ tag.id }}">
-                            {{ tag.name }}
-                        </label>
-                    </div>
-                    {% endfor %}
+        <!-- Tag Filter -->
+        <div class="col-12">
+            <label class="form-label">Filter by Tags</label>
+            <div class="tag-options">
+                {% for tag in all_tags %}
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" 
+                           name="tags" id="tag-{{ tag.id }}" 
+                           value="{{ tag.id }}"
+                           {% if tag.id in selected_tags %}checked{% endif %}>
+                    <label class="form-check-label" for="tag-{{ tag.id }}">
+                        {{ tag.name }}
+                    </label>
                 </div>
-            </div>
-            
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search me-2"></i>Search
-                </button>
+                {% endfor %}
             </div>
         </div>
-    </form>
+        
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search me-2"></i>Search
+            </button>
+        </div>
+    </div>
+</form>
 
     {% if searched %}
         <h2 class="mb-4">Search Results for: <em>{{ searched }}</em></h2>
