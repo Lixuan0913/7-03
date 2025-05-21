@@ -627,46 +627,57 @@ def search():
     form = SearchForm()
     all_tags = Tag.query.order_by(Tag.name).all()
     form.tags.choices = [(tag.id, tag.name) for tag in all_tags]
+    
+    print("RAW form data:", request.form)
 
-    if form.validate_on_submit():
-        search_term = form.searched.data.strip() if form.searched.data else ''
-        selected_tags = form.tags.data or []
-        item_filter = form.item_filter.data.strip() if form.item_filter.data else ''
+    # Initialize variables
+    search_term = request.args.get('searched', '') if request.method == 'GET' else form.searched.data
+    item_filter = request.args.get('item_filter', '') if request.method == 'GET' else form.item_filter.data
+    
+    # Handle tags - for GET they come from request.args, for POST from form
+    if request.method == 'POST':
+        selected_tags = request.form.getlist('tags')
+    else:
+        selected_tags = request.args.getlist('tags')
+    
+    selected_tags = list(map(int, selected_tags)) if selected_tags else []
 
-        # Build query for items
-        items_query = Item.query
-        
-        # Apply search term filter (searches in item name and description)
-        if search_term:
-            items_query = items_query.filter(
-                db.or_(
-                    Item.name.ilike(f'%{search_term}%'),
-                    Item.description.ilike(f'%{search_term}%')
-                )
+    # Build query for items
+    items_query = Item.query
+    
+    # Apply search term filter
+    if search_term:
+        items_query = items_query.filter(
+            db.or_(
+                Item.name.ilike(f'%{search_term}%'),
+                Item.description.ilike(f'%{search_term}%')
             )
-        
-        # Apply tag filter
-        if selected_tags:
-            items_query = items_query.join(Item.tags).filter(Tag.id.in_(selected_tags))
-        
-        # Apply item name filter
-        if item_filter:
-            items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
+        )
+    
+    # Apply tag filter
+    if selected_tags:
+        items_query = (
+            items_query
+            .join(Item.tags)
+            .filter(Tag.id.in_(selected_tags))
+            .group_by(Item.id)
+            .having(db.func.count(Tag.id) == len(selected_tags))
+        )
+    
+    # Apply item name filter
+    if item_filter:
+        items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
 
-        # Get the results
-        items = items_query.order_by(Item.name).all()
-        
-        return render_template('search.html', 
-                            form=form, 
-                            searched=search_term, 
-                            items=items,
-                            all_tags=all_tags,
-                            selected_tags=selected_tags,
-                            item_filter=item_filter)
+    # Get the results
+    items = items_query.order_by(Item.name).all()
     
     return render_template('search.html', 
-                         form=form, 
-                         all_tags=all_tags)
+                        form=form, 
+                        searched=search_term, 
+                        items=items,
+                        all_tags=all_tags,
+                        selected_tags=selected_tags,
+                        item_filter=item_filter)
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
