@@ -7,10 +7,15 @@
         
         <div class="row g-3">
             <!-- Search Term -->
-            <div class="col-md-6">
-                {{ form.searched.label(class="form-label") }}
-                {{ form.searched(class="form-control", placeholder="Search items...") }}
+            <div class="search-bar-wrapper w-100 my-2 my-lg-0">
+                <form class="d-flex justify-content-center" action="{{ url_for('search') }}" method="GET">
+                    <div class="input-group" style="max-width: 600px; width: 100%;">
+                        <input class="form-control" type="search" name="searched" placeholder="Search posts...">
+                        <button class="btn btn-outline-success" type="submit">Search</button>
+                    </div>
+                </form>
             </div>
+
             
             <!-- Tag Filter -->
             <div class="col-12">

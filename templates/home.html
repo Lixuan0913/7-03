@@ -2,6 +2,30 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 <div class="container">
+    <div class="slider">
+        <input type="radio" name="slider" id="radio1" checked>
+        <input type="radio" name="slider" id="radio2">
+        <input type="radio" name="slider" id="radio3">
+
+        <div class="slides first">
+            <div class="slide">
+                <img src="{{ url_for('static', filename='images/gym.jpg') }}" alt="Slide 1">
+            </div>
+            <div class="slide">
+                <img src="{{ url_for('static', filename='images/pool.jpg') }}" alt="Slide 2">
+            </div>
+            <div class="slide">
+                <img src="{{ url_for('static', filename='images/track.jpg') }}" alt="Slide 3">
+            </div>
+        </div>
+
+        <div class="navigation-manual">
+            <label for="radio1" class="manual-btn"></label>
+            <label for="radio2" class="manual-btn"></label>
+            <label for="radio3" class="manual-btn"></label>
+        </div>
+    </div>
+
     <h1 class="text-center mt-4">{% block header %}Review Item{% endblock %}</h1>
     <div class="row">
         {% for item in items %}
