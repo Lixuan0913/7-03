@@ -1306,7 +1306,7 @@ def admin_hide_content(content_type, content_id):
         return redirect(url_for("admin_dashboard"))
     
     db.session.commit()
-    flash("Content has been hidden", category='success')
+    flash("Content has been deleted", category='success')
 
     Report.query.filter_by(
         content_type=content_type,
