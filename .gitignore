@@ -68,8 +68,6 @@ database.sqlite3
 
 __pycache__
 
-static
-
 #migration
 alembic.ini
 env.py
