@@ -34,7 +34,7 @@
             {% endif %}
 
              <!-- Item Details -->
-            <div class="card">
+            <div class="card" style="height: auto;">
                 <div class="card-body">
                     {% if user_identity == "admin" %}
                     <div class="text-end">
@@ -66,10 +66,10 @@
                 </div>
 
                 {% if item.posts %}
-                <div class="horizontal-comments-container" style="overflow-x: auto; white-space: nowrap; padding-bottom: 20px;">
-                     {% for post in item.posts %}
-                        {% include 'posts_div.html' %}
-                        {% endfor %}
+                <div class="comments-container" style="overflow-y:visible">
+                {% for post in item.posts %}
+                    {% include 'posts_div.html' %}
+               {% endfor %}
                 </div>
                 {% else %}
                 <div class="text-center py-5 bg-light rounded">

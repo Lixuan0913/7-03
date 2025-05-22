@@ -1233,6 +1233,7 @@ def toggle_admin(user_id):
         flash("You cannot modify your own admin status", category="warning")
         return redirect(url_for('home'))
     else:
+        user.identity="admin"
         user.is_admin = not user.is_admin
         db.session.commit()
         status = "granted" if user.is_admin else "revoked"
