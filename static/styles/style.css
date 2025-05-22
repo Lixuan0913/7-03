@@ -247,6 +247,7 @@ body {
         padding: 0.75rem 1.25rem;
     }
     
+
     /* Comment Styles */
     .comment-item {
         font-size: 0.9rem;
@@ -292,7 +293,10 @@ body {
 }
 
 .post-separator {
-  margin-bottom: 20px; /* Adjust the value as needed */
+  margin-bottom: 15px;
+  padding: 15px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .image-container {
@@ -300,7 +304,6 @@ body {
         gap: 10px;             
         flex-wrap: wrap;       
     }
-}
 
 .slider {
     position: relative;
