@@ -82,8 +82,7 @@ class Post(db.Model):
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
-    status = db.Column(db.String(20), default='visible')
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))    
     
     @property
     def total_feedback_count(self):
@@ -94,9 +93,7 @@ class Replies(db.Model):
     text = db.Column(db.String(200), nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
-    status = db.Column(db.String(20), default="visible")
     
-
 item_tags = db.Table('item_tags',
     db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete="CASCADE"), primary_key=True)
@@ -132,7 +129,6 @@ class Feedback(db.Model):
     __table_args__ = (
         db.UniqueConstraint('reviewer', 'post_id', name='_user_post_uc'),
     )
-
     
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -402,7 +398,6 @@ def delete_post(id):
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
     else:
-        post.status = 'removed'
         post.ratings = None
         
         for image in post.images:
@@ -415,9 +410,10 @@ def delete_post(id):
 
         # First delete all comments associated with the post
         for reply in post.comments:
-            reply.status = 'removed'
+            db.session.delete(reply)
 
         # Then delete the post
+        db.session.delete(post)
         db.session.commit()
         
         flash("Post and its comments have been removed", category="success")
@@ -1285,7 +1281,6 @@ def admin_delete_user(user_id):
 
     return redirect(url_for('admin_users'))
 
-
 @app.route('/admin/hide-content/<content_type>/<int:content_id>')
 def admin_hide_content(content_type, content_id):
     if 'user' not in session:
@@ -1299,13 +1294,13 @@ def admin_hide_content(content_type, content_id):
     
     if content_type == 'post':
         content = Post.query.get_or_404(content_id)
-        content.status = 'removed'
         for comment in content.comments:
-            comment.status = 'removed'
+            db.session.delete(comment)
+        db.session.delete(content)
 
     elif content_type == 'comment':
         content = Replies.query.get_or_404(content_id)
-        content.status = 'removed'
+        db.session.delete(content)
     else:
         flash("Invalid content type", category="danger")
         return redirect(url_for("admin_dashboard"))
@@ -1321,8 +1316,8 @@ def admin_hide_content(content_type, content_id):
 
     return redirect(url_for("admin_dashboard"))
 
-@app.route('/admin/restore-content/<content_type>/<int:content_id>')
-def admin_restore_content(content_type, content_id):
+"""@app.route('/admin/restore-content/<content_type>/<int:content_id>')
+    def admin_restore_content(content_type, content_id):
     if 'user' not in session:
         flash("Please login to access admin panel", category="danger")
         return redirect(url_for('login'))
@@ -1341,7 +1336,7 @@ def admin_restore_content(content_type, content_id):
     else:
         flash("Invalid content type", category='danger')
     
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard')) """
 
 @app.route('/admin/dismiss-report/<int:report_id>')
 def admin_dismiss_report(report_id):
