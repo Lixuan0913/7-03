@@ -3,12 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
 from datetime import datetime
+from mail_utils import init_mail, generate_token, confirm_token, send_verification_email,send_reset_email
 import re
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
 app = Flask(__name__,template_folder="templates")
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
 app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
 POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
@@ -17,6 +19,7 @@ app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 app.config['POST_IMAGE_FOLDER']=POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER']=ITEM_IMAGE_FOLDER
 os.makedirs(POST_IMAGE_FOLDER, exist_ok=True)
+init_mail(app)
 
 # Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
@@ -31,6 +34,7 @@ class Users(db.Model):
     password = db.Column(db.String(12), nullable=False)  
     image_file=db.Column(db.String(100),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
+    verified = db.Column(db.Boolean, default=False, nullable=False)# ensure student that are verified
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
@@ -179,25 +183,15 @@ profanity_filter = ProfanityFilter()
 @app.route("/")
 @app.route("/home")
 def home():
-   user=session.get("user")
-   review_item=Item.query.options(
+    review_item=Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.posts)
     ).all()
-   if "user" in session:
-      username = session["user"]
-      user = Users.query.filter_by(username=username).first()
-      return render_template("home.html", user=user, items=review_item)
+    if "user" not in session:
+        flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
+        return render_template("intro.html")
       
-   else:
-      flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
-      return render_template("intro.html")
-
-
-@app.route("/database")
-def database():
-   return render_template("database.html",values=Users.query.all())
-
+    return render_template("home.html", items=review_item)
 
 @app.route("/signup",methods=["GET","POST"])
 def signup():
@@ -233,31 +227,121 @@ def signup():
       
         try:
             user = Users(
-                email=email,
+                email=email.lower(),
                 username=username,
                 password=generate_password_hash(actual_password,method="pbkdf2:sha256")
                 )
+            
+            user.identity = user.get_identity()  # Force identity update
+
+            if user.identity == "student":
+                user.verified = False  # Students need verification
+                token = generate_token(email)
+                verify_url = url_for("verify_email", token=token, _external=True)
+                send_verification_email(email, verify_url)
+                flash("Please check your email for verfication")
+            else:
+                user.verified = True  # Auto-verify lecturers and admins
+
             db.session.add(user)
             db.session.commit()
-            flash("Signup successful!", "success")
+
             return redirect(url_for("login"))
       
+            
         except Exception as e:
             db.session.rollback()
             flash("Error while saving to database: " + str(e), "danger")
             return redirect(url_for("signup"))
 
     return render_template("Signup.html")
-@app.context_processor
-def inject_current_user():
-    # Get username from session
-    username = session.get('user')
+
+@app.route("/verify/<token>")
+def verify_email(token):
+    try:
+        email = confirm_token(token)
+        if not email:
+            flash("Invalid or expired verification link", "danger")
+            return redirect(url_for("signup"))
+        
+        email = email.lower()
+        user = Users.query.filter_by(email=email).first()
+        if not user:
+            flash("User not found", "danger")
+            return redirect(url_for("signup"))
+        
+        if user.verified:
+            flash("Account already verified", "info")
+        else:
+            user.verified = True
+            db.session.commit()
+            flash("Your account has been verified. You can now log in.", "success")
+        
+        return redirect(url_for("login"))  # Always redirect after verification
     
-    # If user is logged in, get their full user object
-    if username:
-        current_user = Users.query.filter_by(username=username).first()
-        return {'current_user': current_user}
-    return {'current_user': None}
+    except Exception as e:
+        flash("Verification failed: " + str(e), "danger")
+        return redirect(url_for("signup"))
+    
+@app.route("/request_reset", methods=["GET", "POST"])
+def request_reset():
+    if request.method == "POST":
+      email=request.form.get("request_email")
+
+      user=Users.query.filter_by(email=email.lower()).first()
+
+      if user:
+          
+          token=generate_token(email)
+
+          reset_url=url_for('reset_token',token=token,_external=True)
+
+          send_reset_email(user.email, reset_url)
+
+          flash('An email has been sent to reset your password.', 'info')
+
+          return redirect(url_for('login')) 
+        
+      else:
+            flash('No account found with that email address.', 'warning')
+
+    return render_template("request_reset.html")
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_token(token):
+    try:
+        email=confirm_token(token)
+    except:
+        flash('The reset link is invalid or has expired.', 'warning')
+        return redirect(url_for('request_reset'))
+    
+    user=Users.query.filter_by(email=email.lower()).first()
+
+    if not user:
+        flash('Invalid user.', 'warning')
+        return redirect(url_for("request_reset"))
+    
+    if request.method == "POST":
+
+        new_password = request.form.get('new_password')
+        confirm_password=request.form.get('confirm_password')
+
+        if not new_password or not confirm_password:
+            flash('Both fields are required.', 'warning')
+            return redirect(url_for("reset_token",token=token)) 
+
+        if new_password != confirm_password:
+            flash('Passwords do not match.', 'warning')
+            return redirect(url_for("reset_token",token=token))   
+        
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+
+        flash('Your password has been updated! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html',token=token)
+
 
 @app.route("/login",methods=["GET","POST"])
 def login():
@@ -271,17 +355,32 @@ def login():
       
       if found_user:
          if check_password_hash(found_user.password,password):
-            session["user"]=found_user.username
-            session["user_id"] = found_user.id
-            session['identity'] = found_user.identity
-            flash("Login Successful","success")
-            return redirect(url_for("home"))
+            if not found_user.verified:
+                flash("Your account is not yet verified. Please check your email for verification link.", "warning")
+                return redirect(url_for("login"))
+            else:
+              session["user"]=found_user.username
+              session["user_id"] = found_user.id
+              session['identity'] = found_user.identity
+              flash("Login Successful","success")
+              return redirect(url_for("home"))
          else:
             flash("Incorrect password","danger")
       else:
          flash("Users does not exist","danger")
          return redirect(url_for("login"))
    return render_template("Login.html")
+
+@app.context_processor
+def inject_current_user():
+    # Get username from session
+    username = session.get('user')
+    
+    # If user is logged in, get their full user object
+    if username:
+        current_user = Users.query.filter_by(username=username).first()
+        return {'current_user': current_user}
+    return {'current_user': None}
 
 @app.route("/logout")
 def logout():
@@ -1233,7 +1332,12 @@ def toggle_admin(user_id):
         flash("You cannot modify your own admin status", category="warning")
         return redirect(url_for('home'))
     else:
-        user.identity="admin"
+        if not user.is_admin:  # When granting admin
+            user.original_identity = user.identity  # Store original identity
+            user.identity = "admin"
+        else:  # When revoking admin
+            user.identity = getattr(user, 'original_identity', user.get_identity())  # Restore original or get new identity
+
         user.is_admin = not user.is_admin
         db.session.commit()
         status = "granted" if user.is_admin else "revoked"
@@ -1356,6 +1460,19 @@ def admin_dismiss_report(report_id):
 
     flash("Report has been dismissed", "info")
     return redirect(url_for('admin_reports'))  # or wherever you want to return
+
+@app.route("/debug_mail_config")
+def debug_mail_config():
+    mail_config = {
+        'MAIL_SERVER': app.config.get('MAIL_SERVER'),
+        'MAIL_PORT': app.config.get('MAIL_PORT'),
+        'MAIL_USE_TLS': app.config.get('MAIL_USE_TLS'),
+        'MAIL_USE_SSL': app.config.get('MAIL_USE_SSL'),
+        'MAIL_USERNAME': app.config.get('MAIL_USERNAME'),  # (Check if correct)
+        'MAIL_PASSWORD': app.config.get('MAIL_PASSWORD'),  # (Check if correct)
+        'MAIL_DEFAULT_SENDER': app.config.get('MAIL_DEFAULT_SENDER'),
+    }
+    return mail_config  # Returns as JSON in browser
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request
