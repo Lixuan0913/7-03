@@ -38,6 +38,7 @@ class Users(db.Model):
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_removed = db.Column(db.Boolean, default=False)
 
     def __init__(self,email,username,password):
         self.email=email
@@ -86,7 +87,8 @@ class Post(db.Model):
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
     helpful_count = db.Column(db.Integer, default=0) 
     not_helpful_count = db.Column(db.Integer, default=0)    
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))    
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
+    is_removed = db.Column(db.Boolean, default=False)
     
     @property
     def total_feedback_count(self):
@@ -97,6 +99,7 @@ class Replies(db.Model):
     text = db.Column(db.String(200), nullable=False)
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
+    is_removed = db.Column(db.Boolean, default=False)
     
 item_tags = db.Table('item_tags',
     db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
@@ -117,6 +120,8 @@ class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(140))
     description = db.Column(db.Text)
+    is_approved = db.Column(db.Boolean, default=False)
+    submitted_by = db.Column(db.String(100), db.ForeignKey('users.username', ondelete='SET NULL'))
     images=db.relationship('Item_Image', backref='item', cascade="all, delete-orphan", passive_deletes=True)
     tags = db.relationship('Tag', secondary=item_tags, backref=db.backref('items', lazy='dynamic'))
     posts = db.relationship('Post', backref='item', cascade="all, delete-orphan")
@@ -352,8 +357,11 @@ def login():
 
       found_user = Users.query.filter_by(username=username).first()
 
-      
       if found_user:
+         if found_user.is_removed:
+                flash("This account has been deactivated.", "danger")
+                return redirect(url_for('login'))
+         
          if check_password_hash(found_user.password,password):
             if not found_user.verified:
                 flash("Your account is not yet verified. Please check your email for verification link.", "warning")
@@ -384,10 +392,11 @@ def inject_current_user():
 
 @app.route("/logout")
 def logout():
-   session.pop("user",None)
-   flash("You have been logout","success")
-   return redirect(url_for("login"))
-
+    session.pop("user", None)
+    session.pop("user_id", None)
+    session.pop("identity", None)
+    flash("You have been logged out.", "success")
+    return redirect(url_for("login"))
 
 @app.route('/delete/<email>',methods=["POST"])
 def delete_user(email):
@@ -429,6 +438,10 @@ def create_post(item_id):
     if not user:
         flash("User not found", category="danger")
         return redirect(url_for("login"))
+    
+    if user.identity == "admin":
+        flash('Admins are not allowed to create posts', category='danger')
+        return redirect(url_for('view_item', item_id=item.id))
     
     # Check if user is lecturer and item has lecturer tag
     lecturer_tag = Tag.query.filter_by(name="Lecturer").first()
@@ -491,14 +504,16 @@ def create_post(item_id):
 def delete_post(id):
     item_id = request.args.get('item_id', type=int)
     post = Post.query.filter_by(id=id).first()
-
+    comment = Replies.query.filter_by(id=post.id).first()
+    
     if not post:
         flash("Post doesn't exist", category="danger")
     elif session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
     else:
-        post.ratings = None
-        
+        post.ratings = 0
+        post.is_removed = True
+
         for image in post.images:
             try:
                 image_path = os.path.join(POST_IMAGE_FOLDER, image.filename)
@@ -509,12 +524,16 @@ def delete_post(id):
 
         # First delete all comments associated with the post
         for reply in post.comments:
-            db.session.delete(reply)
+            reply.is_removed = True
 
-        # Then delete the post
-        db.session.delete(post)
+        related_reports = Report.query.filter_by(
+        reported_content_id=comment.id,
+        content_type='comment'
+        ).all()
+        for report in related_reports:
+            db.session.delete(report)
+
         db.session.commit()
-        
         flash("Post and its comments have been removed", category="success")
 
      # Check if the referrer is the profile page
@@ -555,7 +574,6 @@ def edit_post(id):
                 post.text = text
                 post.ratings = int(ratings) if ratings else None
                 
-
         # Handle image uploads
         if upload_image:
             for file in upload_image:
@@ -593,8 +611,6 @@ def edit_post(id):
         return redirect(url_for('view_item',item_id=item_id))
     # For GET request, show the edit form with current post content
     return render_template('edit_post.html', post=post)
-
-
 
 @app.route("/posts/<username>")
 def posts(username):
@@ -667,6 +683,8 @@ def delete_comment(comment_id):
         flash("You don't have permission to delete this comment", category="danger")
         return redirect(url_for('view_item', item_id=item_id))
     
+    comment.is_removed = True
+
     related_reports = Report.query.filter_by(
         reported_content_id=comment.id,
         content_type='comment'
@@ -730,7 +748,8 @@ def search():
     form = SearchForm()
     all_tags = Tag.query.order_by(Tag.name).all()
     form.tags.choices = [(tag.id, tag.name) for tag in all_tags]
-    
+    items_query = Item.query.filter_by(is_approved=True)
+
     print("RAW form data:", request.form)
 
     # Initialize variables
@@ -929,28 +948,35 @@ def feedback(post_id, action):
 
 @app.route("/additem", methods=["GET", "POST"])
 def add_item():
+    if 'user' not in session:
+        flash("Please login to add items", "danger")
+        return redirect(url_for('login'))
+    
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user:
+        flash("User not found", "danger")
+        return redirect(url_for('login'))
     
     create_tags()
-
     default_tags = Tag.query.filter_by(is_default=True).all()
 
-
     if request.method == "POST":
-        name=request.form.get("name")
+        name = request.form.get("name")
         selected_default_tags = request.form.getlist('default_tags')
         custom_tags = request.form.get('custom_tags',' ').strip()
-        description=request.form.get("description")
-        review_pic=request.files.getlist('review_picture')
+        description = request.form.get("description")
+        review_pic = request.files.getlist('review_picture')
 
         if not (name and description):
             flash("Please enter all required fields", "danger")
             return redirect(url_for('add_item'))
         
         try:
-            # Create the Item
             new_item = Item(
                 name=name,
                 description=description,
+                submitted_by=user.username,
+                is_approved=user.is_admin  # Auto-approve if admin adds
             )
             db.session.add(new_item)
             db.session.flush()  # Get the ID for the new item
@@ -1002,7 +1028,12 @@ def add_item():
                             continue
             
             db.session.commit()
-            flash("Item added successfully!", "success")
+
+            if user.is_admin:
+                flash("Item added successfully!", "success")
+            else:
+                flash("Item submitted for admin approval", "success")
+            
             return redirect(url_for('home'))
             
         except Exception as e:
@@ -1010,7 +1041,7 @@ def add_item():
             flash(f"An error occurred: {str(e)}", "error")
             return redirect(url_for('home'))
     
-    return render_template("add_item.html",default_tags=default_tags)
+    return render_template("add_item.html", default_tags=default_tags)
 
 @app.route("/viewitem/<int:item_id>",methods=["GET", "POST"])
 def view_item(item_id):
@@ -1018,7 +1049,11 @@ def view_item(item_id):
         db.joinedload(Item.images),
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
-    ).get_or_404(item_id)
+    ).filter_by(id=item_id, is_approved=True).first_or_404()
+
+    item.posts = [post for post in item.posts if not post.is_removed]
+    for post in item.posts:
+        post.comments = [comment for comment in post.comments if not comment.is_removed]
     
     user_identity = session.get('identity')
 
@@ -1187,7 +1222,6 @@ def delete_item(item_id):
 
     return redirect(url_for('home'))
 
-
 @app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
 def report_post(post_id):
     if 'user' not in session:
@@ -1280,13 +1314,26 @@ def admin_dashboard():
         return redirect(url_for('home'))
     
     # Display total users, reports, and posts
-    total_users = Users.query.count()
+    total_users = Users.query.filter_by(is_removed=False).count()
     total_posts = Post.query.count()
     total_reports = Report.query.count()
+    pending_items_count = Item.query.filter_by(is_approved=False).count()
 
-    recent_reports = Report.query.order_by(Report.id.desc()).limit(5).all()
+    hidden_posts_count = Post.query.filter_by(is_removed=True).count()
+    hidden_comments_count = Replies.query.filter_by(is_removed=True).count()
+    hidden_content_count = hidden_posts_count + hidden_comments_count
 
-    return render_template('admin_dashboard.html', total_users=total_users, total_posts=total_posts, total_reports=total_reports, recent_reports=recent_reports)
+    recent_reports = Report.query.order_by(Report.id.asc()).limit(3).all()
+    pending_items = Item.query.filter_by(is_approved=False).order_by(Item.id.asc()).limit(3).all()
+
+    return render_template('admin_dashboard.html', 
+                         total_users=total_users,
+                         total_posts=total_posts,
+                         total_reports=total_reports,
+                         pending_items_count=pending_items_count,
+                         recent_reports=recent_reports,
+                         pending_items=pending_items,
+                         hidden_comments_count=hidden_comments_count)
 
 @app.route('/admin/users')
 def admin_users():
@@ -1359,30 +1406,17 @@ def admin_delete_user(user_id):
     user = Users.query.get_or_404(user_id)
     if user_id == current_user.id:
         flash("You cannot delete yourself", category="danger")
-        return redirect(url_for('admin_users'))
-
-    try:
-        # Delete user's comments
-        Replies.query.filter_by(author=user.username).delete()
-
-        # Delete user's posts and their comments
-        posts = Post.query.filter_by(author=user.username).all()
-        for post in posts:
-            Replies.query.filter_by(post_id=post.id).delete()
-            db.session.delete(post)
-
-        # Delete reports made by this user
-        Report.query.filter_by(reporter_id=user.id).delete()
-
-        # Finally, delete the user
-        db.session.delete(user)
+    else:
+        # Soft delete implementation
+        user.is_removed = True
         db.session.commit()
 
-        flash(f"User {user.username} and all their content deleted successfully", "success")
+        if 'user_id' in session and session['user_id'] == user_id:
+            session.pop('user', None)
+            session.pop('user_id', None)
+            session.pop('identity', None)
 
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Error deleting user: {str(e)}", "danger")
+        flash(f"User {user.username} has been deactivated", "success")
 
     return redirect(url_for('admin_users'))
 
@@ -1399,19 +1433,19 @@ def admin_hide_content(content_type, content_id):
     
     if content_type == 'post':
         content = Post.query.get_or_404(content_id)
+        content.is_removed = True
         for comment in content.comments:
-            db.session.delete(comment)
-        db.session.delete(content)
+            comment.is_removed = True
 
     elif content_type == 'comment':
         content = Replies.query.get_or_404(content_id)
-        db.session.delete(content)
+        content.is_removed = True
     else:
         flash("Invalid content type", category="danger")
         return redirect(url_for("admin_dashboard"))
     
     db.session.commit()
-    flash("Content has been deleted", category='success')
+    flash("Content has been removed", category='success')
 
     Report.query.filter_by(
         content_type=content_type,
@@ -1420,28 +1454,6 @@ def admin_hide_content(content_type, content_id):
     db.session.commit()
 
     return redirect(url_for("admin_dashboard"))
-
-"""@app.route('/admin/restore-content/<content_type>/<int:content_id>')
-    def admin_restore_content(content_type, content_id):
-    if 'user' not in session:
-        flash("Please login to access admin panel", category="danger")
-        return redirect(url_for('login'))
-
-    current_user = Users.query.filter_by(username=session['user']).first()
-    if not current_user or not current_user.is_admin:
-        flash("You don't have permission to access this page", category="danger")
-        return redirect(url_for('home'))
-    
-    if content_type == 'post':
-        Post.status = 'visible'
-        flash("Post has been restored", category="success")
-    elif content_type == 'comment':
-        Replies.status = 'visible'
-        flash("Comment has been restored", category="success")
-    else:
-        flash("Invalid content type", category='danger')
-    
-    return redirect(url_for('admin_dashboard')) """
 
 @app.route('/admin/dismiss-report/<int:report_id>')
 def admin_dismiss_report(report_id):
@@ -1461,18 +1473,75 @@ def admin_dismiss_report(report_id):
     flash("Report has been dismissed", "info")
     return redirect(url_for('admin_reports'))  # or wherever you want to return
 
-@app.route("/debug_mail_config")
-def debug_mail_config():
-    mail_config = {
-        'MAIL_SERVER': app.config.get('MAIL_SERVER'),
-        'MAIL_PORT': app.config.get('MAIL_PORT'),
-        'MAIL_USE_TLS': app.config.get('MAIL_USE_TLS'),
-        'MAIL_USE_SSL': app.config.get('MAIL_USE_SSL'),
-        'MAIL_USERNAME': app.config.get('MAIL_USERNAME'),  # (Check if correct)
-        'MAIL_PASSWORD': app.config.get('MAIL_PASSWORD'),  # (Check if correct)
-        'MAIL_DEFAULT_SENDER': app.config.get('MAIL_DEFAULT_SENDER'),
-    }
-    return mail_config  # Returns as JSON in browser
+@app.route('/admin/pending-items')
+def pending_items():
+    if 'user' not in session:
+        flash("Please login to access admin panel", "danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", "danger")
+        return redirect(url_for('home'))
+    
+    pending_items = Item.query.filter_by(is_approved=False).all()
+    return render_template('admin_pending_items.html', items=pending_items)
+
+@app.route('/admin/approve-item/<int:item_id>')
+def approve_item(item_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", "danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", "danger")
+        return redirect(url_for('home'))
+    
+    item = Item.query.get_or_404(item_id)
+    item.is_approved = True
+    db.session.commit()
+    
+    flash("Item approved and published", "success")
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/reject-item/<int:item_id>')
+def reject_item(item_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", "danger")
+        return redirect(url_for('login'))
+
+    user = Users.query.filter_by(username=session['user']).first()
+    if not user or not user.is_admin:
+        flash("You don't have permission to access this page", "danger")
+        return redirect(url_for('home'))
+    
+    item = Item.query.get_or_404(item_id)
+    
+    # Delete associated images first
+    for image in item.images:
+        try:
+            os.remove(os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename))
+        except:
+            pass
+    
+    db.session.delete(item)
+    db.session.commit()
+    
+    flash("Item rejected and deleted", "success")
+    return redirect(url_for('admin_dashboard'))
+
+@app.before_request
+def check_account_status():
+    if 'user' in session:
+        user = Users.query.filter_by(username=session['user']).first()
+        if not user or user.is_removed:
+            # Clear session and force logout
+            session.pop("user", None)
+            session.pop("user_id", None)
+            session.pop("identity", None)
+            flash("Your account has been deactivated or removed.", "danger")
+            return redirect(url_for("login"))
 
 if __name__ == '__main__':  
    with app.app_context():  # Needed for DB operations outside a request

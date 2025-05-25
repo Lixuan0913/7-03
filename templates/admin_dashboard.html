@@ -3,7 +3,7 @@
 {% block admin_content %}
 <h2>Admin Dashboard</h2>
 <div class="row mt-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-primary mb-3">
             <div class="card-body">
                 <h5 class="card-title">Total Users</h5>
@@ -11,7 +11,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-success mb-3">
             <div class="card-body">
                 <h5 class="card-title">Total Posts</h5>
@@ -19,7 +19,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-danger mb-3">
             <div class="card-body">
                 <h5 class="card-title">Open Reports</h5>
@@ -27,8 +27,63 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Pending Approvals</h5>
+                <p class="card-text display-4">{{ pending_items_count }}</p>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Pending Approvals Section -->
+<h3 class="mt-4">Pending Items for Approval</h3>
+{% if pending_items %}
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Tags</th>
+                <th>Submitted By</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in pending_items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.description|truncate(50) }}</td>
+                <td>
+                    {% for tag in item.tags %}
+                        <span class="badge bg-secondary">{{ tag.name }}</span>
+                    {% endfor %}
+                </td>
+                <td>{{ item.submitted_by }}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('pending_items', item_id=item.id) }}" 
+                           class="btn btn-sm btn-info">View</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="text-center mt-3">
+        <a href="{{ url_for('pending_items') }}" class="btn btn-primary">View All Pending Items</a>
+    </div>
+{% else %}
+<div class="alert alert-info">
+    No pending items waiting for approval.
+</div>
+{% endif %}
+
+<!-- Recent Reports Section -->
 <h3 class="mt-4">Recent Reports</h3>
 <div class="table-responsive">
     <table class="table table-striped">
@@ -49,12 +104,19 @@
                 <td>{{ report.reporter.username }}</td>
                 <td>{{ report.reason }}</td>
                 <td>
-                    <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
-                       class="btn btn-sm btn-danger">Hide Content</a>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
+                           class="btn btn-sm btn-danger">Hide</a>
+                        <a href="{{ url_for('admin_dismiss_report', report_id=report.id) }}" 
+                           class="btn btn-sm btn-secondary">Dismiss</a>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    <div class="text-center mt-3">
+        <a href="{{ url_for('admin_reports') }}" class="btn btn-primary">View All Reports</a>
+    </div>
 </div>
 {% endblock %}

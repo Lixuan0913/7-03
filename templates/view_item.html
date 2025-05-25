@@ -6,7 +6,7 @@
         <div class="col-md-8 mx-auto">
             <div class="mt-3">
                 <a href="{{ url_for('home') }}" class="btn btn-secondary">Back to All Items</a>
-        </div>
+            </div>
             <!-- Item Images Carousel -->
             {% if item.images %}
             <div id="itemCarousel" class="carousel carousel-dark slide" data-bs-ride="carousel">
@@ -19,27 +19,27 @@
                              style="max-height: 500px; object-fit: contain;">
                     </div>
                     {% endfor %}
-                      </div>
-                      {% if item.images|length > 1 %}
-                     <button class="carousel-control-prev" type="button" data-bs-target="#itemCarousel" data-bs-slide="prev">
-                       <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                       <span class="visually-hidden">Previous</span>
-                     </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
-                      <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                       <span class="visually-hidden">Next</span>
-                    </button>
-                     {% endif %}
                 </div>
+                {% if item.images|length > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#itemCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+                {% endif %}
+            </div>
             {% endif %}
 
-             <!-- Item Details -->
+            <!-- Item Details -->
             <div class="card" style="height: auto;">
                 <div class="card-body">
                     {% if user_identity == "admin" %}
                     <div class="text-end">
-                    <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-primary">Edit Item</a>
-                    <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-primary">Delete item</a>
+                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-primary">Edit Item</a>
+                        <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-primary">Delete item</a>
                     </div>
                     {% endif %}
                     <h2 class="card-title mb-3">{{ item.name }}</h2>
@@ -57,35 +57,38 @@
                     <p class="card-text">{{ item.description }}</p>
                     
                     <!-- Post Section -->
-                 <div class="mb-5">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Reviews</h2>
-                    <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i> Write a Post
-                    </a>
-                </div>
+                    <div class="mb-5">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Reviews</h2>
+                            {% if user_identity != 'admin' %}
+                            <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i> Write a Post
+                            </a>
+                            {% endif %}
+                        </div>
 
-                {% if item.posts %}
-                <div class="comments-container" style="overflow-y:visible">
-                {% for post in item.posts %}
-                    {% include 'posts_div.html' %}
-               {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-5 bg-light rounded">
-                    <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
-                    <h4 class="text-muted">No posts yet</h4>
-                    <p class="text-muted">Be the first to share your experience!</p>
-                    <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary mt-2">
-                        Write the first review
-                    </a>
-                </div>
-                {% endif %}
-    </div>
-</div>
+                        {% if item.posts %}
+                        <div class="comments-container" style="overflow-y:visible">
+                            {% for post in item.posts %}
+                                {% include 'posts_div.html' %}
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 bg-light rounded">
+                            <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No posts yet</h4>
+                            <p class="text-muted">Be the first to share your experience!</p>
+                            {% if user_identity != 'admin' %}
+                            <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary mt-2">
+                                Write the first review
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-     </div>
+    </div>
 </div>
 {% endblock %}
