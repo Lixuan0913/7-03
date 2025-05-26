@@ -1066,7 +1066,8 @@ def view_item(item_id):
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
     ).filter_by(id=item_id, is_approved=True).first_or_404()
     
-    user_identity = session.get('identity')
+    user = Users.query.get(session.get('user_id'))
+    user_identity = user.identity
 
     return render_template('view_item.html', item=item,user_identity=user_identity)
 
