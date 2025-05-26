@@ -188,10 +188,14 @@ profanity_filter = ProfanityFilter()
 @app.route("/")
 @app.route("/home")
 def home():
-    review_item=Item.query.options(
-        db.joinedload(Item.images),
-        db.joinedload(Item.posts)
-    ).all()
+     # Query all approved items with their images, tags, and non-removed posts count
+    review_item = Item.query.options(
+        db.joinedload(Item.images),  # Load all images
+        db.joinedload(Item.tags),   # Load all tags
+        db.joinedload(Item.posts)   # Load posts for counting
+    ).filter_by(is_approved=True).all()
+
+
     if "user" not in session:
         flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
         return render_template("intro.html")
@@ -969,6 +973,17 @@ def add_item():
 
         if not (name and description):
             flash("Please enter all required fields", "danger")
+            return redirect(url_for('add_item'))
+        
+        # Validate at least one image was uploaded
+        if not review_pic or any(file.filename == '' for file in review_pic):
+           flash("Please upload at least one image", "danger")
+           return redirect(url_for('add_item'))
+        
+        existing_item = Item.query.filter(db.func.lower(Item.name) == name.lower(),Item.is_approved == True ).first()  # Only check against approved items
+
+        if existing_item:
+            flash("An item with this name already exists", "danger")
             return redirect(url_for('add_item'))
         
         try:
