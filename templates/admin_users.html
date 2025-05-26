@@ -27,6 +27,8 @@
                             <span class="badge bg-secondary">Student</span>
                         {% elif user.identity == 'lecturer' %}
                             <span class="badge bg-danger">Lecturer</span>
+                        {% elif user.identity == 'staff' %}
+                            <span class="badge bg-info">Staff</span>
                         {% endif %}
                     </td>
                     <td>

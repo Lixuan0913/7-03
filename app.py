@@ -39,6 +39,7 @@ class Users(db.Model):
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_removed = db.Column(db.Boolean, default=False)
+    original_identity = db.Column(db.String(50))
 
     def __init__(self,email,username,password):
         self.email=email
@@ -1373,6 +1374,26 @@ def admin_reports():
     reports = Report.query.order_by(Report.id.desc()).all()
     return render_template('admin_reports.html', reports=reports)
         
+import re
+
+def get_identity_from_email(email):
+    if email.endswith('@student.mmu.edu.my'):
+        return 'student'
+    elif email.endswith('@mmu.edu.my'):
+        return 'staff'
+    elif email.endswith('@admin.mmu.edu.my'):
+        return 'staff'  # or 'admin', depending on your logic
+    else:
+        return 'user'  # fallback identity
+    
+def get_identity_from_email(email):
+    if email.endswith('@student.mmu.edu.my'):
+        return 'student'
+    elif email.endswith('@mmu.edu.my'):
+        return 'lecturer'
+    elif email.endswith('@admin.mmu.edu.my'):
+        return 'staff'  # or 'admin', depending on your logic
+
 @app.route('/admin/toggle-admin/<int:user_id>')
 def toggle_admin(user_id):
     if 'user' not in session:
@@ -1383,24 +1404,24 @@ def toggle_admin(user_id):
     if not current_user or not current_user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
+
     user = Users.query.get_or_404(user_id)
     if user_id == current_user.id:
         flash("You cannot modify your own admin status", category="warning")
         return redirect(url_for('home'))
-    else:
-        if not user.is_admin:  # When granting admin
-            user.original_identity = user.identity  # Store original identity
-            user.identity = "admin"
-        else:  # When revoking admin
-            user.identity = getattr(user, 'original_identity', user.get_identity())  # Restore original or get new identity
 
-        user.is_admin = not user.is_admin
-        db.session.commit()
-        status = "granted" if user.is_admin else "revoked"
-        flash(f"Admin privileges {status} for {user.username}", category='success')
-    
+    if not user.is_admin:
+        user.identity = "admin"
+        user.is_admin = True
+    else:
+        user.identity = get_identity_from_email(user.email)
+        user.is_admin = False
+
+    db.session.commit()
+    status = "granted" if user.is_admin else "revoked"
+    flash(f"Admin privileges {status} for {user.username}", category='success')
     return redirect(url_for('admin_users'))
+
 
 @app.route('/admin/delete-user/<int:user_id>')
 def admin_delete_user(user_id):
