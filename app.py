@@ -248,7 +248,7 @@ def signup():
                 token = generate_token(email)
                 verify_url = url_for("verify_email", token=token, _external=True)
                 send_verification_email(email, verify_url)
-                flash("Please check your email for verfication")
+                flash("Please check your email for verfication", category='info')
             else:
                 user.verified = True  # Auto-verify lecturers and admins
 
@@ -1065,10 +1065,6 @@ def view_item(item_id):
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
     ).filter_by(id=item_id, is_approved=True).first_or_404()
-
-    item.posts = [post for post in item.posts if not post.is_removed]
-    for post in item.posts:
-        post.comments = [comment for comment in post.comments if not comment.is_removed]
     
     user_identity = session.get('identity')
 
@@ -1188,8 +1184,6 @@ def edit_item(item_id):
             flash(f"Error updating item: {str(e)}", "error")
 
     return render_template("edit_item.html",item=item,default_tags=default_tags,item_tag_ids=item_tag_ids,custom_tags_str=custom_tags_str)
-
-
 
 @app.route("/deleteitem/<int:item_id>", methods=["GET", "POST"])
 def delete_item(item_id):
@@ -1361,7 +1355,7 @@ def admin_users():
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
     
-    users = Users.query.order_by(Users.username).all()
+    users = Users.query.order_by(Users.id.asc()).all()
     return render_template('admin_users.html', users=users)
 
 @app.route('/admin/reports')
@@ -1446,28 +1440,31 @@ def admin_hide_content(content_type, content_id):
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
     
+    # Soft delete logic
     if content_type == 'post':
         content = Post.query.get_or_404(content_id)
         content.is_removed = True
         for comment in content.comments:
-            comment.is_removed = True
+            comment.is_removed = True  # Optional: hide associated comments
 
     elif content_type == 'comment':
         content = Replies.query.get_or_404(content_id)
         content.is_removed = True
+
     else:
         flash("Invalid content type", category="danger")
         return redirect(url_for("admin_dashboard"))
     
     db.session.commit()
-    flash("Content has been removed", category='success')
 
+    # Hard delete associated reports
     Report.query.filter_by(
         content_type=content_type,
         reported_content_id=content_id
     ).delete()
     db.session.commit()
 
+    flash("Content has been marked as [deleted] and reports removed", category='success')
     return redirect(url_for("admin_dashboard"))
 
 @app.route('/admin/dismiss-report/<int:report_id>')

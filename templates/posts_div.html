@@ -1,7 +1,6 @@
 {% block content %}
 <div class="container">
     <div id="posts">
-        {% if post.status != 'removed' %}
             <div class="card border-dark mb-7 post-separator">
                 <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <div class="d-flex align-items-center">
@@ -11,8 +10,7 @@
                             style="height: 40px; width: 40px; object-fit: cover;">
                         
                         {% if post.users and not post.users.is_removed %}
-                            <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold me-1">{{post.author}}</a>
-                            <!-- Identity badge - only show if user exists and isn't removed -->
+                            <a href="/profile/{{ post.author }}" class="text-decoration-none fw-bold me-1">{{ post.author }}</a>
                             <span class="badge 
                                 {% if post.users.identity == 'student' %}bg-primary
                                 {% elif post.users.identity == 'lecturer' %}bg-success
@@ -21,13 +19,7 @@
                                 {{ post.users.identity }}
                             </span>
                         {% else %}
-                            <span class="text-decoration-none fw-bold me-1 text-muted">
-                                {% if not post.users.is_removed %}
-                                    {{ post.author }}
-                                {% else %}
-                                    Deleted User
-                                {% endif %}
-                            </span>                        
+                            <span class="text-muted fst-italic">[deleted]</span>
                         {% endif %}
                     </div>
                     
@@ -78,8 +70,6 @@
                             <span class="text-muted fst-italic">[deleted]</span>
                         {% endif %}
                     </div>
-
-
                     <p class="text-muted small mb-0">{{ post.date_posted.strftime('%b %d, %Y') }}</p>
 
                     <!-- Images -->
@@ -163,24 +153,25 @@
                                                 <div>
                                                     <div>
                                                         {% if comment.users and not comment.users.is_removed %}
-                                                        <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
-                                                        <span class="badge 
-                                                           {% if comment.users.identity == 'student' %}bg-primary
-                                                            {% elif comment.users.identity == 'lecturer' %}bg-success
-                                                              {% elif comment.users.identity == 'admin' %}bg-danger
-                                                            {% else %}bg-secondary{% endif %} ms-1">
-                                                           {{ comment.users.identity }}
-                                                           </span>
-                                                           {% else %}
-                                                           <span class="fw-bold text-muted">Deleted User</span>
+                                                            <a href="/profile/{{ comment.author }}" class="text-decoration-none fw-bold">{{ comment.author }}</a>
+                                                            <span class="badge 
+                                                                {% if comment.users.identity == 'student' %}bg-primary
+                                                                {% elif comment.users.identity == 'lecturer' %}bg-success
+                                                                {% elif comment.users.identity == 'admin' %}bg-danger
+                                                                {% else %}bg-secondary{% endif %} ms-1">
+                                                                {{ comment.users.identity }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="fw-bold text-muted fst-italic">[deleted]</span>
                                                         {% endif %}
                                                     </div>
                                                     <div class="small">
-                                                        {% if comment.text and not comment.is_removed %}
-                                                            {{comment.text}}
-                                                        {% else %}
+                                                        {% if comment.is_removed %}
                                                             <span class="text-muted fst-italic">[deleted]</span>
+                                                        {% else %}
+                                                            {{ comment.text }}
                                                         {% endif %}
+
                                                     </div>
                                                 </div>
                                             </div>
@@ -228,7 +219,6 @@
                     </div>
                 </div>
             </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
