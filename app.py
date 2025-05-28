@@ -507,48 +507,48 @@ def create_post(item_id):
 
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
 def delete_post(id):
-    item_id = request.args.get('item_id', type=int)
-    post = Post.query.filter_by(id=id).first()
-    comment = Replies.query.filter_by(id=post.id).first()
+    item_id = request.args.get('item_id', type=int)  # This seems unused except in redirect
+    post = Post.query.get_or_404(id)  # This will automatically 404 if post doesn't exist
     
-    if not post:
-        flash("Post doesn't exist", category="danger")
-    elif session.get("user") != post.author:
+    if session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
-    else:
+        return redirect(url_for('view_item', item_id=item_id or post.item_id))
+    
+    try:
         post.ratings = 0
         post.is_removed = True
 
+        # Delete associated images
         for image in post.images:
             try:
                 image_path = os.path.join(POST_IMAGE_FOLDER, image.filename)
                 if os.path.exists(image_path):
-                    os.remove(image_path)  # Delete the file
+                    os.remove(image_path)
             except Exception as e:
-                flash(f"Failed to delete image {image.filename}: {e}")
+                flash(f"Failed to delete image {image.filename}: {e}", category="warning")
 
-        # First delete all comments associated with the post
+        # Mark all comments as removed
         for reply in post.comments:
             reply.is_removed = True
-
-        related_reports = Report.query.filter_by(
-        reported_content_id=comment.id,
-        content_type='comment'
-        ).all()
-        for report in related_reports:
-            db.session.delete(report)
+            # Delete reports for this comment
+            Report.query.filter_by(
+                reported_content_id=reply.id,
+                content_type='comment'
+            ).delete()
 
         db.session.commit()
         flash("Post and its comments have been removed", category="success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"An error occurred while deleting the post: {e}", category="danger")
 
-     # Check if the referrer is the profile page
+    # Redirect logic
     referrer = request.referrer
     if referrer and '/profile/' in referrer:
-       # Extract username from referrer URL
-       profile_username = referrer.split('/profile/')[-1].split('?')[0]
-       return redirect(url_for('profile', username=profile_username))
+        profile_username = referrer.split('/profile/')[-1].split('?')[0]
+        return redirect(url_for('profile', username=profile_username))
     
-    return redirect(url_for('view_item', item_id=item_id))
+    return redirect(url_for('view_item', item_id=item_id or post.item_id))
 
 @app.route("/edit-post/<id>", methods=['GET', 'POST'])
 def edit_post(id):
@@ -698,8 +698,7 @@ def delete_comment(comment_id):
     for report in related_reports:
         db.session.delete(report)
         
-    flash("Comment deleted", category="success")
-    db.session.delete(comment)
+    flash("Comment removed", category="success")
     db.session.commit()
 
     # Redirect logic
@@ -709,7 +708,6 @@ def delete_comment(comment_id):
         return redirect(url_for('profile', username=profile_username))
 
     return redirect(url_for('view_item', item_id=item_id))
-
 
 @app.route("/edit-comment/<comment_id>", methods=["GET", "POST"])
 def edit_comment(comment_id):
@@ -1044,6 +1042,9 @@ def view_item(item_id):
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
     ).filter_by(id=item_id, is_approved=True).first_or_404()
+
+    for post in item.posts:
+        post.comments = Replies.query.filter_by(post_id=post.id).all()
     
     user = Users.query.get(session.get('user_id'))
     user_identity = user.identity if user else None
