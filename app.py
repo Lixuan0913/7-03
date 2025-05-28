@@ -751,8 +751,6 @@ def base():
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     form = SearchForm()
-    all_tags = Tag.query.order_by(Tag.name).all()
-    form.tags.choices = [(tag.id, tag.name) for tag in all_tags]
     items_query = Item.query.filter_by(is_approved=True)
 
     print("RAW form data:", request.form)
@@ -760,14 +758,6 @@ def search():
     # Initialize variables
     search_term = request.args.get('searched', '') if request.method == 'GET' else form.searched.data
     item_filter = request.args.get('item_filter', '') if request.method == 'GET' else form.item_filter.data
-    
-    # Handle tags - for GET they come from request.args, for POST from form
-    if request.method == 'POST':
-        selected_tags = request.form.getlist('tags')
-    else:
-        selected_tags = request.args.getlist('tags')
-    
-    selected_tags = list(map(int, selected_tags)) if selected_tags else []
 
     # Build query for items
     items_query = Item.query
@@ -779,16 +769,6 @@ def search():
                 Item.name.ilike(f'%{search_term}%'),
                 Item.description.ilike(f'%{search_term}%')
             )
-        )
-    
-    # Apply tag filter
-    if selected_tags:
-        items_query = (
-            items_query
-            .join(Item.tags)
-            .filter(Tag.id.in_(selected_tags))
-            .group_by(Item.id)
-            .having(db.func.count(Tag.id) == len(selected_tags))
         )
     
     # Apply item name filter
