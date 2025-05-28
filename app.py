@@ -782,8 +782,6 @@ def search():
                         form=form, 
                         searched=search_term, 
                         items=items,
-                        all_tags=all_tags,
-                        selected_tags=selected_tags,
                         item_filter=item_filter)
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
@@ -1039,7 +1037,7 @@ def add_item():
     
     return render_template("add_item.html", default_tags=default_tags)
 
-@app.route("/viewitem/<int:item_id>",methods=["GET", "POST"])
+@app.route("/viewitem/<int:item_id>", methods=["GET", "POST"])
 def view_item(item_id):
     item = Item.query.options(
         db.joinedload(Item.images),
@@ -1048,10 +1046,19 @@ def view_item(item_id):
     ).filter_by(id=item_id, is_approved=True).first_or_404()
     
     user = Users.query.get(session.get('user_id'))
-    user_identity = user.identity
+    user_identity = user.identity if user else None
 
-    return render_template('view_item.html', item=item,user_identity=user_identity)
+    # Calculate average rating and rating count
+    ratings = [post.ratings for post in item.posts if post.ratings is not None]
+    average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
+    rating_count = len(ratings)
 
+    return render_template('view_item.html', 
+                         item=item,
+                         user_identity=user_identity,
+                         average_rating=average_rating,
+                         rating_count=rating_count)
+    
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):
     item=Item.query.get_or_404(item_id)
