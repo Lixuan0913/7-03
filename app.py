@@ -189,19 +189,23 @@ profanity_filter = ProfanityFilter()
 @app.route("/")
 @app.route("/home")
 def home():
-     # Query all approved items with their images, tags, and non-removed posts count
-    review_item = Item.query.options(
-        db.joinedload(Item.images),  # Load all images
-        db.joinedload(Item.tags),   # Load all tags
-        db.joinedload(Item.posts)   # Load posts for counting
-    ).filter_by(is_approved=True).all()
-
 
     if "user" not in session:
         flash("You aren't logged in. Please login or signup to write reviews.", "danger")
         return render_template("intro.html")
+    
+    # Get current page from form submission or default to 1
+    page = int(request.form.get('page', 1)) if request.method == 'POST' else int(request.args.get('page', 1))
+    per_page = 6  # Items per load
+    
+    # Load item that approved with pagination
+    items_pagination = Item.query.options(
+        db.joinedload(Item.images),
+        db.joinedload(Item.tags),
+        db.joinedload(Item.posts)
+    ).filter_by(is_approved=True).order_by(Item.name).paginate(page=page, per_page=per_page, error_out=False)
       
-    return render_template("home.html", items=review_item)
+    return render_template("home.html", items_pagination=items_pagination)
 
 @app.route("/signup",methods=["GET","POST"])
 def signup():
@@ -1054,11 +1058,19 @@ def view_item(item_id):
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
 
-    return render_template('view_item.html', 
-                         item=item,
+    # Get page number from request args, default to 1
+    page = request.args.get('page', 1, type=int)
+    per_page = 3  # Posts per page
+    
+    # Create a query for posts with pagination
+    posts_query = Post.query.filter_by(item_id=item.id, is_removed=False)
+    posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('view_item.html',item=item,
                          user_identity=user_identity,
                          average_rating=average_rating,
-                         rating_count=rating_count)
+                         rating_count=rating_count,
+                         posts_pagination=posts_pagination)
     
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):
