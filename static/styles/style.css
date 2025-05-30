@@ -364,3 +364,12 @@ input[name="slider"] {
 #radio3:checked ~ .first {
             transform: translateX(-200%);
         }
+
+        /* Add to your existing CSS */
+#load-more-form {
+    transition: all 0.3s ease;
+}
+
+#load-more-form:target {
+    display: none;
+}

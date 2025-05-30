@@ -28,7 +28,7 @@
 
     <h1 class="text-center mt-4">{% block header %}Review Item{% endblock %}</h1>
     <div class="row">
-        {% for item in items %}
+        {% for item in items_pagination.items %}
         <div class="col-md-4 mb-4">
             <a href="{{ url_for('view_item', item_id=item.id) }}" style="cursor: pointer; text-decoration: none;">
             <div class="card h-100">
@@ -65,6 +65,34 @@
 </div>
 </div>
 
+<nav aria-label="Page navigation for items">
+    <ul class="pagination justify-content-center">
+        {# Show Previous button if we're not on the first page #}
+        {% if items_pagination.page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('home', page=items_pagination.prev_num) }}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo; Previous</span>
+                </a>
+            </li>
+        {% endif %}
+
+        {# Show Load More button if there are more items #}
+        {% if items_pagination.has_next %}
+            <li class="page-item {% if items_pagination.page > 1 %}ms-3{% endif %}">
+                <a class="page-link" href="{{ url_for('home', page=items_pagination.next_num) }}" aria-label="Load More">
+                    Load More &raquo;
+                </a>
+            </li>
+        {% else %}
+            {# Show "No More Items" only if we're on the last page #}
+            {% if items_pagination.pages > 1 %}
+            <li class="page-item {% if items_pagination.page > 1 %}ms-3{% endif %}">
+                <span class="page-link" aria-hidden="true">No More Items</span>
+            </li>
+        {% endif %}
+        {% endif %}
+    </ul>
+</nav>
 
 <div class="d-flex justify-content-center">
   <a href="/additem" class="btn btn-primary">Add Review Item</a>
