@@ -39,7 +39,6 @@ class Users(db.Model):
     comments = db.relationship('Replies', backref='users', passive_deletes=True) 
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_removed = db.Column(db.Boolean, default=False)
-    original_identity = db.Column(db.String(50))
 
     def __init__(self,email,username,password):
         self.email=email
