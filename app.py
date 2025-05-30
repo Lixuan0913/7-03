@@ -152,7 +152,7 @@ class Report(db.Model):
 # Simple profanity filter
 class ProfanityFilter:
     def __init__(self):
-        # List of inappropriate words (customize this list)
+        # List of inappropriate words 
         self.banned_words = [
             'shit', 'fuck', 'asshole', 'bitch', 'cunt',
             'dick', 'pussy', 'bastard', 'whore', 'slut',
@@ -174,12 +174,12 @@ class ProfanityFilter:
             self.word_variations.append(word + 'hole')
     
     def contains_profanity(self, text):
-        """Check if text contains any banned words"""
+        # Check if text contains any banned words
         if not text:
             return False
             
         text_lower = text.lower()
-        words = re.findall(r'\w+', text_lower)
+        words = re.findall(r'\w+', text_lower) # breaks down words ex. ['f0ck', 'you']
         return any(bad_word in self.word_variations for bad_word in words)
     
 # Create a global instance
@@ -447,6 +447,7 @@ def create_post(item_id):
         flash("User not found", category="danger")
         return redirect(url_for("login"))
     
+    # Limits the admin from writing a post
     if user.identity == "admin":
         flash('Admins are not allowed to create posts', category='danger')
         return redirect(url_for('view_item', item_id=item.id))
@@ -457,12 +458,11 @@ def create_post(item_id):
         flash("Lecturers are not allowed to create posts on lecturer tagged items", category="danger")
         return redirect(url_for('view_item', item_id=item.id))
     
-    if request.method == "POST":
-        text = request.form.get('text', '').strip()
-        ratings = request.form.get('ratings')
+    if request.method == "POST": # adds data into the database when submit
+        text = request.form.get('text', '').strip() # removes extra spaces and gets text from user
+        ratings = request.form.get('ratings') # stores rating data in the database
         upload_files = request.files.getlist('picture')
 
-        # Validation
         if not text:
             flash("Post cannot be empty", category='danger')
         elif not ratings:
@@ -470,7 +470,7 @@ def create_post(item_id):
         elif profanity_filter.contains_profanity(text):
             flash("Your comment contains inappropriate language and cannot be posted", category="danger")
         else:
-            # Create post
+            # Gets text, username, ratings and item id upon submission
             post = Post(
                 text=text,
                 author=username,
@@ -507,10 +507,9 @@ def create_post(item_id):
     # For GET requests or failed POSTs
     return render_template("create_post.html", item=item, text=request.form.get('text', ''))
                 
-
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
 def delete_post(id):
-    item_id = request.args.get('item_id', type=int)  # This seems unused except in redirect
+    item_id = request.args.get('item_id', type=int) 
     post = Post.query.get_or_404(id)  # This will automatically 404 if post doesn't exist
     
     if session.get("user") != post.author:
@@ -518,6 +517,7 @@ def delete_post(id):
         return redirect(url_for('view_item', item_id=item_id or post.item_id))
     
     try:
+        # Marks post as removed
         post.ratings = 0
         post.is_removed = True
 
@@ -666,6 +666,7 @@ def create_comment(post_id):
             flash("Your comment contains inappropriate language and cannot be posted", category="danger")
         else:
             if post:
+                # gets text, username and post_id from database
                 comment = Replies(text=text, author=username, post_id=post_id)
                 db.session.add(comment)
                 db.session.commit()
@@ -691,13 +692,16 @@ def delete_comment(comment_id):
         flash("You don't have permission to delete this comment", category="danger")
         return redirect(url_for('view_item', item_id=item_id))
     
+    # soft deletes the comment
     comment.is_removed = True
 
+    # gets reported comments from database
     related_reports = Report.query.filter_by(
         reported_content_id=comment.id,
         content_type='comment'
     ).all()
-        
+    
+    # deletes reports associated with the comment
     for report in related_reports:
         db.session.delete(report)
         
@@ -1062,7 +1066,7 @@ def view_item(item_id):
     per_page = 3  # Posts per page
     
     # Create a query for posts with pagination
-    posts_query = Post.query.filter_by(item_id=item.id, is_removed=False)
+    posts_query = Post.query.filter_by(item_id=item.id)
     posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     return render_template('view_item.html',item=item,
@@ -1329,11 +1333,8 @@ def admin_dashboard():
     total_reports = Report.query.count()
     pending_items_count = Item.query.filter_by(is_approved=False).count()
 
-    hidden_posts_count = Post.query.filter_by(is_removed=True).count()
-    hidden_comments_count = Replies.query.filter_by(is_removed=True).count()
-    hidden_content_count = hidden_posts_count + hidden_comments_count
-
-    recent_reports = Report.query.order_by(Report.id.asc()).limit(3).all()
+    # Display reports and pending items
+    recent_reports = Report.query.order_by(Report.id.desc()).limit(3).all()
     pending_items = Item.query.filter_by(is_approved=False).order_by(Item.id.asc()).limit(3).all()
 
     return render_template('admin_dashboard.html', 
@@ -1342,8 +1343,7 @@ def admin_dashboard():
                          total_reports=total_reports,
                          pending_items_count=pending_items_count,
                          recent_reports=recent_reports,
-                         pending_items=pending_items,
-                         hidden_comments_count=hidden_comments_count)
+                         pending_items=pending_items)
 
 @app.route('/admin/users')
 def admin_users():
@@ -1370,28 +1370,16 @@ def admin_reports():
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
     
-    reports = Report.query.order_by(Report.id.desc()).all()
+    reports = Report.query.order_by(Report.id.asc()).all()
     return render_template('admin_reports.html', reports=reports)
         
-import re
-
-def get_identity_from_email(email):
-    if email.endswith('@student.mmu.edu.my'):
-        return 'student'
-    elif email.endswith('@mmu.edu.my'):
-        return 'staff'
-    elif email.endswith('@admin.mmu.edu.my'):
-        return 'staff'  # or 'admin', depending on your logic
-    else:
-        return 'user'  # fallback identity
-    
 def get_identity_from_email(email):
     if email.endswith('@student.mmu.edu.my'):
         return 'student'
     elif email.endswith('@mmu.edu.my'):
         return 'lecturer'
     elif email.endswith('@admin.mmu.edu.my'):
-        return 'staff'  # or 'admin', depending on your logic
+        return 'staff' 
 
 @app.route('/admin/toggle-admin/<int:user_id>')
 def toggle_admin(user_id):
@@ -1409,10 +1397,12 @@ def toggle_admin(user_id):
         flash("You cannot modify your own admin status", category="warning")
         return redirect(url_for('home'))
 
+    # Grants admin privileges
     if not user.is_admin:
         user.identity = "admin"
         user.is_admin = True
     else:
+        # Revoke admin privileges and reassign role tag based on email
         user.identity = get_identity_from_email(user.email)
         user.is_admin = False
 
@@ -1420,7 +1410,6 @@ def toggle_admin(user_id):
     status = "granted" if user.is_admin else "revoked"
     flash(f"Admin privileges {status} for {user.username}", category='success')
     return redirect(url_for('admin_users'))
-
 
 @app.route('/admin/delete-user/<int:user_id>')
 def admin_delete_user(user_id):
@@ -1441,11 +1430,6 @@ def admin_delete_user(user_id):
         user.is_removed = True
         db.session.commit()
 
-        if 'user_id' in session and session['user_id'] == user_id:
-            session.pop('user', None)
-            session.pop('user_id', None)
-            session.pop('identity', None)
-
         flash(f"User {user.username} has been deactivated", "success")
 
     return redirect(url_for('admin_users'))
@@ -1461,12 +1445,10 @@ def admin_hide_content(content_type, content_id):
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
     
-    # Soft delete logic
+    # Soft delete posts
     if content_type == 'post':
         content = Post.query.get_or_404(content_id)
         content.is_removed = True
-        for comment in content.comments:
-            comment.is_removed = True  # Optional: hide associated comments
 
     elif content_type == 'comment':
         content = Replies.query.get_or_404(content_id)
@@ -1564,7 +1546,7 @@ def reject_item(item_id):
     flash("Item rejected and deleted", "success")
     return redirect(url_for('admin_dashboard'))
 
-@app.before_request
+@app.before_request #Runs before request is processed
 def check_account_status():
     if 'user' in session:
         user = Users.query.filter_by(username=session['user']).first()

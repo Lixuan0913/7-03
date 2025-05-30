@@ -85,38 +85,44 @@
 
 <!-- Recent Reports Section -->
 <h3 class="mt-4">Recent Reports</h3>
-<div class="table-responsive">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Reporter</th>
-                <th>Reason</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for report in recent_reports %}
-            <tr>
-                <td>{{ report.id }}</td>
-                <td>{{ report.content_type }}</td>
-                <td>{{ report.reporter.username }}</td>
-                <td>{{ report.reason }}</td>
-                <td>
-                    <div class="btn-group" role="group">
-                        <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
-                           class="btn btn-sm btn-danger">Hide</a>
-                        <a href="{{ url_for('admin_dismiss_report', report_id=report.id) }}" 
-                           class="btn btn-sm btn-secondary">Dismiss</a>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="text-center mt-3">
-        <a href="{{ url_for('admin_reports') }}" class="btn btn-primary">View All Reports</a>
+{% if recent_reports %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Reporter</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in recent_reports %}
+                <tr>
+                    <td>{{ report.id }}</td>
+                    <td>{{ report.content_type }}</td>
+                    <td>{{ report.reporter.username }}</td>
+                    <td>{{ report.reason }}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
+                            class="btn btn-sm btn-danger">Hide</a>
+                            <a href="{{ url_for('admin_dismiss_report', report_id=report.id) }}" 
+                            class="btn btn-sm btn-secondary">Dismiss</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="text-center mt-3">
+            <a href="{{ url_for('admin_reports') }}" class="btn btn-primary">View All Reports</a>
+        </div>
     </div>
-</div>
+{% else %}
+    <div class="alert alert-info">
+        No pending items waiting for approval.
+    </div>
+{% endif %}
 {% endblock %}
