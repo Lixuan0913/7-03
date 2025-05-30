@@ -198,7 +198,7 @@ def home():
 
 
     if "user" not in session:
-        flash("You aren't logged in. Please login or signup to see the reviews.", "danger")
+        flash("You aren't logged in. Please login or signup to write reviews.", "danger")
         return render_template("intro.html")
       
     return render_template("home.html", items=review_item)

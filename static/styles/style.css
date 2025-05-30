@@ -1,5 +1,5 @@
 body {
-    background-image: url('../images/bg.png');
+    background-image: url('../images/bg.jpg');
     background-size: cover;
     background-position: center center;   /* Center the image */
     background-repeat: no-repeat;         /* Do not repeat the image */
@@ -34,6 +34,10 @@ body {
 .navbar .dropdown-menu {
     right: 0;
     left: auto;
+}
+
+.custom-navbar {
+    background-color: white; 
 }
 
 /* Existing Search Styles */
