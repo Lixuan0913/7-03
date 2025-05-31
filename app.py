@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
 from datetime import datetime
-from mail_utils import init_mail, generate_token, confirm_token, send_verification_email,send_reset_email
+from mail_utils import generate_token, confirm_token, send_verification_email,send_reset_email
 import re
 from werkzeug.utils import secure_filename
 import uuid as uuid
@@ -19,7 +19,6 @@ app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 app.config['POST_IMAGE_FOLDER']=POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER']=ITEM_IMAGE_FOLDER
 os.makedirs(POST_IMAGE_FOLDER, exist_ok=True)
-init_mail(app)
 
 # Configure SQLite database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
