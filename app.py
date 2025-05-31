@@ -1122,15 +1122,18 @@ def add_item():
 
 @app.route("/viewitem/<int:item_id>", methods=["GET", "POST"])
 def view_item(item_id):
+     # Query the item by ID and ensure it is approved
+     # Also joinload the image,post,comment and replies for the item
     item = Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
-    ).filter_by(id=item_id, is_approved=True).first_or_404()
-
+    ).filter_by(id=item_id, is_approved=True).first_or_404() # 404 if item not found or not approved
+    
     for post in item.posts:
         post.comments = Replies.query.filter_by(post_id=post.id).all()
-    
+
+    # Retrieve currently logged-in user based on session user_id (if any)
     user = Users.query.get(session.get('user_id'))
     user_identity = user.identity if user else None
 
@@ -1143,10 +1146,11 @@ def view_item(item_id):
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
     
-    # Create a query for posts with pagination
+     # Query all posts related to this item, order by most recent first, and paginate results
     posts_query = Post.query.filter_by(item_id=item.id)
     posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
-
+    
+    # Render the 'view_item.html' template with all necessary data:
     return render_template('view_item.html',item=item,
                          user_identity=user_identity,
                          average_rating=average_rating,
@@ -1155,8 +1159,9 @@ def view_item(item_id):
     
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):
-    item=Item.query.get_or_404(item_id)
-
+    item=Item.query.get_or_404(item_id)  # Retrieve item or return 404 if not found
+    
+    # Get all default tags (to ensure its exist)
     default_tags = Tag.query.filter_by(is_default=True).all()
 
     # Get tags already associated with this item
@@ -1165,7 +1170,7 @@ def edit_item(item_id):
     
     # Separate custom tags (non-default ones)
     custom_tags = [tag.name for tag in item_tags if not tag.is_default]
-    custom_tags_str = ", ".join(custom_tags)
+    custom_tags_str = ", ".join(custom_tags)  # To prefill form input
 
     if not item:
         flash("Item not found")
@@ -1180,14 +1185,14 @@ def edit_item(item_id):
 
         # Handle default tags
         selected_tag_ids = request.form.getlist("default_tags")  # getlist for multiple values
-        selected_tag_ids = [int(id) for id in selected_tag_ids]
+        selected_tag_ids = [int(id) for id in selected_tag_ids] # seperate and store into an array
 
         # Handle custom tags
         custom_tags_input = request.form.get("custom_tags", "").strip()
-        new_custom_tags = [t.strip() for t in custom_tags_input.split(",") if t.strip()]
+        new_custom_tags = [t.strip() for t in custom_tags_input.split(",") if t.strip()] # seperate and store into an array
         
         try:
-            
+            # Update basic fields
             item.name = name
             item.description = description
             
@@ -1195,23 +1200,25 @@ def edit_item(item_id):
             current_tag_ids = {tag.id for tag in item.tags}
             
             # Tags to remove
-            tags_to_remove = current_tag_ids - set(selected_tag_ids)
+            tags_to_remove = current_tag_ids - set(selected_tag_ids) # Find tags that are in current_tag but not in selected tag
             for tag_id in tags_to_remove:
+                # Query the id
                 tag = Tag.query.get(tag_id)
                 if tag and tag.is_default:  # Only remove default tags
                     item.tags.remove(tag)
             
             # Tags to add
-            tags_to_add = set(selected_tag_ids) - current_tag_ids
+            tags_to_add = set(selected_tag_ids) - current_tag_ids # Find tags that are in selected_tags
             for tag_id in tags_to_add:
                 tag = Tag.query.get(tag_id)
                 if tag:
+                    # Append the tags
                     item.tags.append(tag)
             
             # Handle custom tags
             existing_custom_tags = {tag.name.lower(): tag for tag in item.tags if not tag.is_default}
             
-            # Remove custom tags not in new input
+            # Remove custom tags not in new updated list
             for tag_name, tag in existing_custom_tags.items():
                 if tag_name not in [t.lower() for t in new_custom_tags]:
                     item.tags.remove(tag)
@@ -1226,7 +1233,7 @@ def edit_item(item_id):
                         db.session.add(tag)
                     item.tags.append(tag)
 
-            # Handle image uploads
+            # Handle image uploads if provided
             if upload_image:
               for file in upload_image:
                 if file.filename != '':
@@ -1234,11 +1241,13 @@ def edit_item(item_id):
                     filename = secure_filename(file.filename)
                     file_ext = os.path.splitext(filename)[1].lower()
                     if file_ext in ['.jpg', '.jpeg', '.png']:
-                        # Generate a unique filename to prevent collisions
+                        # Generate a unique filename to prevent collisions and security
                          filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                         # Add image into filesystem
                          file_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], filename)
 
                          try:
+                              #Save the file
                               file.save(file_path)
                               # Create image record in database
                               image = Item_Image(filename=filename, item_id=item_id)
@@ -1246,7 +1255,7 @@ def edit_item(item_id):
                          except Exception as e:
                            flash(f"Error saving image: {str(e)}", category='danger')
 
-            # Handle image deletions
+            # Handle image deletions if selected
             if delete_image:
                for image_id in delete_image:
                 image = Item_Image.query.get(int(image_id))
