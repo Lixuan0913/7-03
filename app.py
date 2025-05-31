@@ -208,53 +208,60 @@ def home():
 
 @app.route("/signup",methods=["GET","POST"])
 def signup():
+    # Handle POST request (form submission)
     if request.method == "POST":
+        #Get email,username and both password
         email=request.form["email"]
         username=request.form["username"]
         actual_password=request.form["password"]
         confirm_password=request.form["confirm-password"]
-            
+
+        #Check if email or username or password has entered    
         if not email  or not username  or not actual_password:
            flash("Please fill out all field")
            return redirect(url_for("signup"))
-      
+        
+        #Check MMU email format using regex
         pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my|admin\.mmu\.edu\.my)$'
-
         if not re.match(pattern, email):
             flash("Please use a valid MMU email address", "danger")
             return redirect(url_for("signup"))
-
+        
+        # Check if passwords match with confirm_password
         if actual_password != confirm_password:
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
-
+        
+        # Check if the username already exists
         existing_user = Users.query.filter_by(username=username).first()
         if existing_user:
             flash("Username already exists", "danger")
             return redirect(url_for("signup"))
-
+        
+        # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email).first()
         if existing_email:
             flash("Email already registered", "danger")
             return redirect(url_for("signup"))
       
         try:
+            # Create new user with hashed password
             user = Users(
                 email=email.lower(),
                 username=username,
                 password=generate_password_hash(actual_password,method="pbkdf2:sha256")
                 )
             
-            user.identity = user.get_identity()  # Force identity update
+            user.identity = user.get_identity()  # Force identity for user
 
             if user.identity == "student":
                 user.verified = False  # Students need verification
-                token = generate_token(email)
+                token = generate_token(email)#Get token from generate_token in mail_utils.py
                 verify_url = url_for("verify_email", token=token, _external=True)
-                send_verification_email(email, verify_url)
+                send_verification_email(email, verify_url)#Send verification email to user email
                 flash("Please check your email for verfication", category='info')
             else:
-                user.verified = True  # Auto-verify lecturers and admins
+                user.verified = True  # Auto-verify for lecturers and admins
 
             db.session.add(user)
             db.session.commit()
@@ -263,6 +270,7 @@ def signup():
       
             
         except Exception as e:
+             # Handle database errors
             db.session.rollback()
             flash("Error while saving to database: " + str(e), "danger")
             return redirect(url_for("signup"))
@@ -272,50 +280,61 @@ def signup():
 @app.route("/verify/<token>")
 def verify_email(token):
     try:
+        # Decode and validate the token to get the email
         email = confirm_token(token)
+        # If token is invalid or expired
         if not email:
             flash("Invalid or expired verification link", "danger")
             return redirect(url_for("signup"))
         
-        email = email.lower()
+        email = email.lower()# Set email to lowercase()
+        # Find the user by email in the database
         user = Users.query.filter_by(email=email).first()
+        # If no user found from the email
         if not user:
             flash("User not found", "danger")
             return redirect(url_for("signup"))
         
+        # If user is already verified
         if user.verified:
             flash("Account already verified", "info")
         else:
+            # Verify the user's account and save changes
             user.verified = True
             db.session.commit()
             flash("Your account has been verified. You can now log in.", "success")
         
-        return redirect(url_for("login"))  # Always redirect after verification
+        return redirect(url_for("login"))  # redirect to login after verification
     
     except Exception as e:
+        # Handle any unexpected errors during verification
         flash("Verification failed: " + str(e), "danger")
         return redirect(url_for("signup"))
-    
+
+#for request reset password page   
 @app.route("/request_reset", methods=["GET", "POST"])
 def request_reset():
     if request.method == "POST":
+      # Get the email input from the reset password form
       email=request.form.get("request_email")
-
+      
+      # Look up the user in the database by their email (lowercase)
       user=Users.query.filter_by(email=email.lower()).first()
 
       if user:
-          
+          # If the user exists, generate a secure token for password reset
           token=generate_token(email)
-
+          # Create the full URL that includes the token for the reset page
           reset_url=url_for('reset_token',token=token,_external=True)
-
+           # Send a password reset email to the user
           send_reset_email(user.email, reset_url)
-
+          # Notify the user that the email has been sent
           flash('An email has been sent to reset your password.', 'info')
-
+          # Redirect them to the login page after the email is sent
           return redirect(url_for('login')) 
         
       else:
+            # If no account was found with the entered email
             flash('No account found with that email address.', 'warning')
 
     return render_template("request_reset.html")
@@ -323,33 +342,40 @@ def request_reset():
 @app.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_token(token):
     try:
+        # Try to decode and verify the token to extract the email
         email=confirm_token(token)
     except:
+        # If token is invalid or expired, show warning and redirect to request reset page
         flash('The reset link is invalid or has expired.', 'warning')
         return redirect(url_for('request_reset'))
-    
+    # Look up the user using the email from the token
     user=Users.query.filter_by(email=email.lower()).first()
 
     if not user:
+         # If user does not exist in the database
         flash('Invalid user.', 'warning')
         return redirect(url_for("request_reset"))
     
     if request.method == "POST":
-
+        # Get both password
         new_password = request.form.get('new_password')
         confirm_password=request.form.get('confirm_password')
 
+        # Check if both password fields are filled
         if not new_password or not confirm_password:
             flash('Both fields are required.', 'warning')
             return redirect(url_for("reset_token",token=token)) 
-
+        
+        # Check if the new password and confirm password match
         if new_password != confirm_password:
             flash('Passwords do not match.', 'warning')
             return redirect(url_for("reset_token",token=token))   
         
+         # Hash the new password and update it in the database
         user.password = generate_password_hash(new_password)
         db.session.commit()
 
+        # Notify the user of successful password update
         flash('Your password has been updated! You can now log in.', 'success')
         return redirect(url_for('login'))
     
@@ -360,31 +386,40 @@ def reset_token(token):
 def login():
    
    if request.method == "POST":
+      # Get username and password from the login form
       username=request.form["username"]
       password=request.form["password"]
 
+      # Query the database for a user with the given username
       found_user = Users.query.filter_by(username=username).first()
 
       if found_user:
+         # Check if the account is marked as removed/deactivated
          if found_user.is_removed:
                 flash("This account has been deactivated.", "danger")
                 return redirect(url_for('login'))
          
+          # Verify the password using hash check
          if check_password_hash(found_user.password,password):
+             # Check if the user has verified their account
             if not found_user.verified:
                 flash("Your account is not yet verified. Please check your email for verification link.", "warning")
                 return redirect(url_for("login"))
             else:
+               # Store essential user data in the session
               session["user"]=found_user.username
               session["user_id"] = found_user.id
               session['identity'] = found_user.identity
               flash("Login Successful","success")
-              return redirect(url_for("home"))
+              return redirect(url_for("home"))  # Redirect to the homepage after login
          else:
+             # Password does not match
             flash("Incorrect password","danger")
       else:
+         # Username not found in the database
          flash("Users does not exist","danger")
          return redirect(url_for("login"))
+      
    return render_template("Login.html")
 
 @app.context_processor
@@ -400,36 +435,47 @@ def inject_current_user():
 
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
-    session.pop("user_id", None)
-    session.pop("identity", None)
+    session.pop("user", None) # Removes the username
+    session.pop("user_id", None) # Removes the user ID
+    session.pop("identity", None) # Removes the user identity (e.g., student/admin)
+    # Flash a message to confirm successful logout
     flash("You have been logged out.", "success")
+    # Redirect to login after logout
     return redirect(url_for("login"))
 
+#Delete user for user's update page
 @app.route('/delete/<email>',methods=["POST"])
 def delete_user(email):
     if request.method=="POST":
-      data = Users.query.filter_by(email=email).first()
-      db.session.delete(data)
+       # Look up the user by email and then delete
+      user = Users.query.filter_by(email=email).first()
+      db.session.delete(user)
       db.session.commit()
       flash("User deleted successfully.","success")
     else:
+         # If no user was found with that email
         flash("User not found.", "danger")
     return redirect(url_for("signup"))
 
-#create default tags
+#Create default tags for add_item
 def create_tags():
+     # Define the list of default tag names to ensure exist
     default_tags=['Lecturer','Facilities','Food']
+
+    # Query existing tags that match any of the default names
+    # and store their names in a set for fast lookup
     existing_tags={tag.name for tag in Tag.query.filter(Tag.name.in_(default_tags)).all()}
     
+    # Create a list of Tag objects for any default tags that are missing
     new_tags = [Tag(name=tag_name, is_default=True)
         for tag_name in default_tags
         if tag_name not in existing_tags
     ]
-
+    
+    # If there are any new tags to add, save them to the database
     if new_tags:
-        db.session.bulk_save_objects(new_tags)
-        db.session.commit()
+        db.session.bulk_save_objects(new_tags) # Add all new tags efficiently
+        db.session.commit() # Commit the changes to persist them in the database
 
 @app.route("/create-post/<int:item_id>", methods=['GET', 'POST'])
 def create_post(item_id):
@@ -639,16 +685,22 @@ def posts(username):
 
 @app.route("/view_post/<int:post_id>/item/<int:item_id>")
 def view_post(post_id, item_id):
+    # Query the post using joinedload to optimize loading related data:
+    #Load users,post,replies,image and comment
     post = Post.query.options(
         db.joinedload(Post.images),
         db.joinedload(Post.comments).joinedload(Replies.users)
     ).filter_by(id=post_id).first()
-    item = Item.query.get_or_404(item_id)
 
+    # Load the item associated with the post by ID or return a 404 page if not found
+    item = Item.query.get_or_404(item_id)
+    
+    # If no post was found with the given ID, show an error and redirect to home
     if not post:
         flash("Post not found", category="error")
         return redirect(url_for("home"))
     
+    # If everything is found, render the post and item details in the template
     return render_template("view_post.html", post=post,item=item)
 
 @app.route("/create-comment/<post_id>", methods=["POST"])
@@ -791,25 +843,31 @@ def search():
 
 @app.route("/profile/<username>", methods=["GET", "POST"])
 def profile(username):
+    # Query the database to find the user by username
     profile_user = Users.query.filter_by(username=username).first()
+
+     # If the user doesn't exist, show a flash message and redirect to login page
     if not profile_user:
         flash("User not found")
         return redirect(url_for("Login"))
     
     # Get all posts by this user, ordered by newest first
     user_posts = Post.query.filter_by(author=username).order_by(Post.id.desc()).all()
-   
+    
+    # Build the URL for the user's profile image (stored in static folder)
     image_file = url_for('static', filename='profile/pics/' + profile_user.image_file)
+
+    # Render the profile page template, passing the user, profile image URL, and user's posts
     return render_template("Profile.html", user=profile_user, image_file=image_file,posts=user_posts)
 
 @app.route("/update/<username>", methods=["GET", "POST"])
 def update(username):
+    # Find the current_user by username
     current_user = Users.query.filter_by(username=username).first()
+    # Flash message if not user found
     if not current_user:
         flash("User not found")
         return redirect(url_for("Login"))
-    
-
     
     if request.method == "POST":
         # Get form data
@@ -819,22 +877,22 @@ def update(username):
         image_file = request.files.get("profile-picture")
         reset_picture=request.form.get("reset_picture")
         
-        # Update username
+        # Update username if change
         if new_username:
             current_user.username = new_username
 
         # Update password if provided
         if new_password:
+            # Check if both password are match
             if new_password == confirm_password:
+                # If match then hash and update the password
                 current_user.password = generate_password_hash(new_password)
             else:
+                # Flash a message if not match
                 flash("Password does not match", "danger")
                 return redirect(url_for("update", username=current_user.username))
-            
-        
 
-
-        # Handle image upload
+        # Handle image upload if provided
         if image_file and image_file.filename != '':
 
             # Delete old image if it's not the default
@@ -846,40 +904,53 @@ def update(username):
               except Exception as e:
                  flash(f"Could not delete old image: {str(e)}", "warning")
 
-
+            # Secure filename and check file extension
             filename = secure_filename(image_file.filename)
-            file_ext = os.path.splitext(filename)[1].lower()  # Get the file extension
-    
+            file_ext = os.path.splitext(filename)[1].lower() 
+            
+            # Check if file is in jpg/png/jpeg
             if file_ext not in ['.jpg', '.jpeg', '.png']:
+              # If not then flash a message
               flash("Only JPG or PNG are allowed","alert")
               return redirect(url_for("update", username=current_user.username))
-
+            
+            # Generate a unique filename to avoid collisions and for security
             unique_filename = str(uuid.uuid1()) + '_' + filename
             image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             image_file.save(image_path)
+
+            # Update user's image file to the new filename
             current_user.image_file = unique_filename
-
+        
+        # Handle resetting profile picture to default
         if reset_picture:
+            # Only attempt to delete old image if it's not already the default picture
             if current_user.image_file != 'default.jpg':
-
               try:
+                 # Construct the full file path of the current profile image
                  old_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
+                 # Check if the file exists before attempting to delete
                  if os.path.exists(old_path):
-                    os.remove(old_path)
+                    os.remove(old_path) # Delete the old profile picture file from storage
+
               except Exception as e:
+                 # If deletion fails, show a warning message but continue execution
                  flash(f"Couldn't delete old image: {str(e)}", "warning")
 
+            # Set image_file to default
             current_user.image_file = 'default.jpg'
             flash("Profile picture reset to default", "success")
-
+        
+        # Commit all changes to the database
         try:
             db.session.commit()
             flash("Update Successful", "success")
+            # Redirect to the updated profile page
             return redirect(url_for("profile", username=current_user.username))
         except Exception as e:
             db.session.rollback()
             flash(f"Error updating profile: {str(e)}", "danger")
-
+    # Render the update form, passing current user and image url
     return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
 
 @app.route("/feedback/<int:post_id>/<action>")
@@ -936,15 +1007,18 @@ def feedback(post_id, action):
 
 @app.route("/additem", methods=["GET", "POST"])
 def add_item():
+    # Check if user is logged in by checking session
     if 'user' not in session:
         flash("Please login to add items", "danger")
         return redirect(url_for('login'))
     
+    # Get the logged-in user from database
     user = Users.query.filter_by(username=session['user']).first()
     if not user:
         flash("User not found", "danger")
         return redirect(url_for('login'))
     
+     # Ensure default tags exist (e.g., Lecturer, Facilities, Food)
     create_tags()
     default_tags = Tag.query.filter_by(is_default=True).all()
 
@@ -954,16 +1028,18 @@ def add_item():
         custom_tags = request.form.get('custom_tags',' ').strip()
         description = request.form.get("description")
         review_pic = request.files.getlist('review_picture')
-
+        
+        # Check if name,description are entered
         if not (name and description):
             flash("Please enter all required fields", "danger")
             return redirect(url_for('add_item'))
         
-        # Validate at least one image was uploaded
+        # Ensure at least one image was uploaded by checking if file name is empty
         if not review_pic or any(file.filename == '' for file in review_pic):
            flash("Please upload at least one image", "danger")
            return redirect(url_for('add_item'))
         
+        # Check if an approved item with the same name already exists 
         existing_item = Item.query.filter(db.func.lower(Item.name) == name.lower(),Item.is_approved == True ).first()  # Only check against approved items
 
         if existing_item:
@@ -971,11 +1047,12 @@ def add_item():
             return redirect(url_for('add_item'))
         
         try:
+            # Create new item, auto-approve if user is admin
             new_item = Item(
                 name=name,
                 description=description,
                 submitted_by=user.username,
-                is_approved=user.is_admin  # Auto-approve if admin adds
+                is_approved=user.is_admin 
             )
             db.session.add(new_item)
             db.session.flush()  # Get the ID for the new item
@@ -989,32 +1066,32 @@ def add_item():
             # Process custom tags
             if custom_tags:
                 for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
-                    # Check if tag exists (case-insensitive)
+                    # Check if tag exists 
                     tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
 
                     if not tag:  # Create new tag if it doesn't exist
                         tag = Tag(name=tag_name, is_default=False)
                         db.session.add(tag)
                         db.session.flush()
-
+                    # Append tag to item's tags if not already added
                     if tag not in new_item.tags:
                         new_item.tags.append(tag)
             
-            # Process images if any
+            # Process images 
             if review_pic:
                 for file in review_pic:
-                    if file.filename == '':  # Skip if no file selected
-                        continue
-                        
+                    # Secure filename and get extension   
                     filename = secure_filename(file.filename)
                     file_ext = os.path.splitext(filename)[1].lower()
                     
+                    # If image in right extension
                     if file_ext in ['.jpg', '.jpeg', '.png']:
                         # Generate unique filename
                         unique_filename = f"{uuid.uuid4().hex}{file_ext}"
                         file_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], unique_filename)
                         
                         try:
+                            # Save image to filesystem
                             file.save(file_path)
                             # Create image record linked to the item
                             new_image = Item_Image(
@@ -1025,9 +1102,10 @@ def add_item():
                         except Exception as e:
                             flash(f"Error saving image: {str(e)}", "error")
                             continue
-            
+            # Commit everything to database
             db.session.commit()
-
+            
+            # Flash different message based on user role
             if user.is_admin:
                 flash("Item added successfully!", "success")
             else:
