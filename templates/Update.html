@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mb-3">
+    <form action="/update/{{user.username}}" method="POST" enctype="multipart/form-data"  class="update-form">
+       <h1>Update Form</h1>
+      
+
+       <div class=" row mb-3">
+       <label for="username" class="col-sm-3 col-form-label text-end">Username:</label>
+       <div class="col-sm-5">
+       <input type="text" name="username" placeholder="Username"  class="form-control" value="{{user.username}}" required>
+       </div>
+      </div>
+
+      <div class=" row mb-3">
+       <label for="password" class="col-sm-3 col-form-label text-end">Password:</label>
+       <div class="col-sm-9">
+       <input type="password" name="password" class="form-control" placeholder="Leave blank to keep current" minlength="8" maxlength="12">
+    </div>
+    </div>
+
+      <div class=" row mb-3">
+       <label for="confirm-password" class="col-sm-3 col-form-label text-end">Confirm Password:</label>
+       <div class="col-sm-9">
+       <input type="password" name="confirm-password"  class="form-control" placeholder="Please enter again to confirm password">
+     </div>
+     </div>
+
+       <div class=" row mb-3">
+       <label for="Picture" class="col-sm-3 col-form-label text-end">Upload Profile Picture</label>
+       <div class="col-sm-9">
+       <input type="file" class="form-control" name="profile-picture"> 
+       <button type="submit" name="reset_picture" value="1" class="btn btn-outline-secondary btn-sm" style="margin-top: 6%;">Reset to Default Picture</button>
+       </div>
+    </div>
+      <div class=" text-center d-grid gap-2 d-md-block mx-auto">
+       <button type="submit" name="submit" class="btn btn-primary " >Update</button>
+       <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+         Delete Account
+       </button>
+      </div>
+</form>
+</div>
+<!--Delete modal -->
+   <div class="modal fade" id="deleteModal" tabindex="-1">
+   <div class="modal-dialog">
+      <div class="modal-content">
+         <div class="modal-header">
+            <h5 class="modal-title">
+               Delete {{ user.username }}?
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+             </div>
+             <div class="modal-body">
+               <p>This will permanently delete the account. Are you sure?</p>
+             </div>
+             <div class="modal-footer">
+               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+               <form action="{{ url_for('delete_user', email=user.email) }}" method="POST" class="d-inline">
+                  <button type="submit" class="btn btn-danger">Delete</button>
+               </form>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       {% endblock %}

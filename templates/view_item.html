@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} Details{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="mt-3">
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">Back to All Items</a>
+            </div>
+            <!-- Item Images Carousel -->
+            {% if item.images %}
+            <div id="itemCarousel" class="carousel carousel-dark slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    {% for image in item.images %}
+                    <div class="carousel-item {% if loop.first %}active{% endif %} h-100"  style="background-color: #f8f9fa;">
+                    <div class="d-flex align-items-center justify-content-center h-100 p-3">
+                     <img src="{{ url_for('static', filename='itempic/' + image.filename) }}" 
+                     class="img-fluid mh-100" 
+                     style="max-height: 450px; width: auto; max-width: 100%; object-fit: contain;"
+                     alt="{{ item.name }}">
+                 </div>
+             </div>
+                    {% endfor %}
+                </div>
+                {% if item.images|length > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#itemCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#itemCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Item Details -->
+            <div class="card" style="height: auto;">
+                <div class="card-body">
+                    {% if user_identity == "admin" %}
+                    <div class="text-end">
+                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-primary">Edit Item</a>
+                        <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-primary">Delete item</a>
+                    </div>
+                    {% endif %}
+                    <h2 class="card-title mb-3">{{ item.name }}</h2>
+                    {% if item.tags %}
+                    <div class="mb-3">
+                        {% for tag in item.tags %}
+                        <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
+                            {{ tag.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <h3>Description</h3>
+                    <p class="card-text">{{ item.description }}</p>
+                    
+                    <!-- Average Rating Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Overall Rating</h5>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add Review
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            {% if average_rating is not none %}
+            <div class="row align-items-center">
+                <div class="col-md-4 text-center mb-3 mb-md-0">
+                    <div class="display-4 fw-bold text-primary">{{ average_rating }}</div>
+                    <div class="star-rating-display mb-2">
+                        {% for i in range(1, 6) %}
+                            <span class="star {% if i <= average_rating %}filled{% endif %}">★</span>
+                        {% endfor %}
+                    </div>
+                    <small class="text-muted">{{ rating_count }} review{{ 's' if rating_count != 1 else '' }}</small>
+                </div>
+                <div class="col-md-8">
+                    <div class="rating-distribution">
+                        {% for i in range(5, 0, -1) %}
+                            {% set count = item.posts|selectattr('ratings', 'equalto', i)|list|count %}
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="text-nowrap me-2" style="width: 50px;">
+                                    {{ i }} <i class="fas fa-star text-warning"></i>
+                                </div>
+                                <div class="progress flex-grow-1" style="height: 10px;">
+                                    <div class="progress-bar bg-warning" 
+                                         role="progressbar" 
+                                         style="width: {{ (count / rating_count * 100) if rating_count > 0 else 0 }}%"
+                                         aria-valuenow="{{ count }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="{{ rating_count }}">
+                                    </div>
+                                </div>
+                                <div class="ms-2 text-muted" style="width: 30px;">
+                                    {{ count }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-3">
+                <i class="far fa-star fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No ratings yet</h5>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary mt-2">
+                    Be the first to review
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+        <!-- Post Section -->
+        <div class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Reviews</h2>
+                {% if user_identity != 'admin' %}
+                <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> Write a Post
+                    </a>
+                    {% endif %}
+                    </div>
+
+                    {% if posts_pagination.items %}
+                    <div class="comments-container" style="overflow-y:visible;">
+                        {% for post in posts_pagination.items %}
+                            {% include 'posts_div.html' %}
+                        {% endfor %}
+                    </div>
+
+                <!-- Pagination -->
+            <nav aria-label="Posts pagination" class="mt-4">
+               <ul class="pagination justify-content-center">
+               {% if posts_pagination.page > 1 %}
+                <li class="page-item">
+                  <a class="page-link" 
+                     href="{{ url_for('view_item', item_id=item.id, page=posts_pagination.prev_num) }}" 
+                      aria-label="Previous">
+                      &laquo; Previous
+                  </a>
+                </li>
+                 <li class="page-item">
+                <span class="page-link text-muted">
+                    Page {{ posts_pagination.page }} of {{ posts_pagination.pages }}
+                </span>
+                </li>
+               {% endif %}
+
+               {% if posts_pagination.has_next %}
+              <li class="page-item {% if posts_pagination.page > 1 %}ms-2{% endif %}">
+                <a class="page-link btn-primary" 
+                   href="{{ url_for('view_item', item_id=item.id, page=posts_pagination.next_num) }}" 
+                   aria-label="Next">
+                    Load More &raquo;
+                </a>
+               </li>
+               {% else %}
+               {% if posts_pagination.pages > 1 %}
+                  <li class="page-item">
+                    <span class="page-link text-muted">No More Posts</span>
+                   </li>
+                {% endif %}
+                {% endif %}
+               </ul>
+            </nav>
+
+            {% else %}
+            <div class="text-center py-5 bg-light rounded">
+                <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No posts yet</h4>
+                        <p class="text-muted">Be the first to share your experience!</p>
+                {% if user_identity != 'admin' %}
+                    <a href="{{ url_for('create_post', item_id=item.id) }}" class="btn btn-primary mt-2">
+                        Write the first review
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}

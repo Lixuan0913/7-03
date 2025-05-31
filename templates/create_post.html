@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Create Post{% endblock %}
+{% block content %}
+<div class="post-creation-container">
+    <h1 class="text-center mb-4">Create Your Review</h1>
+    
+    <form method="POST" class="post-form" enctype="multipart/form-data" novalidate>
+        <div class="form-group mb-4">
+            <label for="text" class="form-label">Your Review</label>
+            <textarea name="text" id="text" class="form-control {% if request.method == 'POST' and not request.form.get('text') %}is-invalid{% endif %}" 
+                      rows="5" placeholder="Share your thoughts and experiences..." required>{{ request.form.text if request.form.text else '' }}</textarea>
+            {% if request.method == 'POST' and not request.form.get('text') %}
+                <div class="invalid-feedback">Please write your review.</div>
+            {% endif %}
+        </div>
+
+        <!-- Star ratings form -->
+        <div class="rating-section mb-4">
+            <label class="rating-label">Rate your experience <span class="text-danger">*</span></label>
+            <div class="star-rating {% if request.method == 'POST' and not request.form.get('ratings') %}border border-danger rounded p-2{% endif %}">
+                <input type="radio" id="star5" name="ratings" value="5" {% if request.form.get('ratings') == '5' %}checked{% endif %} required>
+                <label for="star5" title="Excellent">★</label>
+                <input type="radio" id="star4" name="ratings" value="4" {% if request.form.get('ratings') == '4' %}checked{% endif %}>
+                <label for="star4" title="Good">★</label>
+                <input type="radio" id="star3" name="ratings" value="3" {% if request.form.get('ratings') == '3' %}checked{% endif %}>
+                <label for="star3" title="Average">★</label>
+                <input type="radio" id="star2" name="ratings" value="2" {% if request.form.get('ratings') == '2' %}checked{% endif %}>
+                <label for="star2" title="Poor">★</label>
+                <input type="radio" id="star1" name="ratings" value="1" {% if request.form.get('ratings') == '1' %}checked{% endif %}>
+                <label for="star1" title="Terrible">★</label>
+            </div>
+            {% if request.method == 'POST' and not request.form.get('ratings') %}
+                <div class="text-danger small mt-1">Please select a rating.</div>
+            {% else %}
+                <div class="rating-hint text-muted mt-2">Click to select your rating</div>
+            {% endif %}
+        </div>
+
+            <div class=" row mb-3">
+                <label for="Picture" class="col-sm-3 col-form-label">Picture</label>
+                <div class="col-sm-9">
+                <input type="file" class="form-control" name="picture" multiple accept="image/*">
+                </div>
+            </div>
+
+        <div class="form-actions text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-4">
+                <i class="fas fa-paper-plane me-2"></i>Publish Review
+            </button>
+            <a href="{{ url_for('view_item', item_id=item.id) }}" class="btn btn-outline-secondary btn-lg px-4 ms-2">
+                <i class="fas fa-arrow-left me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Main Container */
+    .post-creation-container {
+        max-width: 700px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Form Elements */
+    .post-form {
+        padding: 1rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .form-label:after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    textarea.form-control {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    textarea.form-control:focus {
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 0.25rem rgba(74, 144, 226, 0.15);
+    }
+    
+    .is-invalid {
+        border-color: #dc3545 !important;
+    }
+    
+    .is-invalid:focus {
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+    }
+    
+    .invalid-feedback {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Star Rating */
+    .rating-section {
+        text-align: center;
+        padding: 1.5rem 0;
+        background: #f9f9f9;
+        border-radius: 8px;
+        margin: 2rem 0;
+    }
+    
+    .rating-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        display: block;
+        font-size: 1.1rem;
+    }
+    
+    .star-rating {
+        display: inline-block;
+        font-size: 0;
+        unicode-bidi: bidi-override;
+        direction: rtl;
+    }
+    
+    .star-rating input {
+        display: none;
+    }
+    
+    .star-rating label {
+        display: inline-block;
+        font-size: 2.5rem;
+        padding: 0 8px;
+        cursor: pointer;
+        color: #e0e0e0;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input:checked ~ label {
+        color: #ffc107;
+        text-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+    }
+    
+    .star-rating label:active {
+        transform: scale(0.9);
+    }
+    
+    .rating-hint {
+        font-size: 0.9rem;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        background-color: #4a90e2;
+        border-color: #4a90e2;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        background-color: #3a7bc8;
+        border-color: #3a7bc8;
+    }
+    
+    .btn-outline-secondary {
+        transition: all 0.3s ease;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .post-creation-container {
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+        
+        .star-rating label {
+            font-size: 2rem;
+            padding: 0 5px;
+        }
+        
+        .form-actions .btn {
+            display: block;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        
+        .form-actions .btn.ms-2 {
+            margin-left: 0 !important;
+        }
+    }
+</style>
+{% endblock %}

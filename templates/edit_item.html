@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mb-3">
+    <form action="{{ url_for('edit_item', item_id=item.id) }}" method="POST" enctype="multipart/form-data"  class="edit_item">
+       <h1 class="text-center mt-4 mb-2">Update Form</h1>
+      
+
+       <div class=" row mb-3">
+       <label for="name" class="col-sm-3 col-form-label text-end">Name/Place</label>
+       <div class="col-sm-5">
+       <input type="text" name="name" placeholder="name/place"  class="form-control" value="{{item.name}}" required>
+       </div>
+      </div>
+
+       <div class=" row  mb-4 ">
+            <label for="default_tags" class="col-sm-3 col-form-label  text-end">Pick Tags:</label>
+           <div class="col-sm-9">
+        <div class="d-flex flex-wrap">
+            {% for tag in default_tags %}
+            <div class="form-check me-2 mb-2 ">
+                <input type="checkbox" class="form-check-input" name="default_tags" value="{{ tag.id }}" id="tag_{{ tag.id }}" {% if tag.id in item_tag_ids %}checked{% endif %}>
+                <label class="form-check-label" for="tag_{{ tag.id }}">{{ tag.name }}</label>
+            </div>
+            {% endfor %}
+        </div>
+     
+        <div class="tag-input-section mt-3">
+            <label for="custom-tags" class="form-label">Add Your Own Tags (comma separated):</label>
+            <input type="text"
+                   id="custom-tags"
+                   name="custom_tags"
+                   class="form-control "
+                   placeholder="e.g., classroom"
+                   value="{{ custom_tags_str }}">
+             </div>
+          </div>
+      </div>
+
+      <div class=" row mb-3">
+       <label for="description" class="col-sm-3 col-form-label text-end">Description:</label>
+       <div class="col-sm-9">
+       <input type="description" name="description" class="form-control" placeholder="description" value="{{item.description}}" required>
+    </div>
+    </div>
+
+     <div class="form-group mb-4">
+      {% if item.images %}
+      <label class="col-sm-3 col-form-label">Current Images:</label>
+       <div class="d-flex flex-wrap gap-2"> 
+    
+       {% for image in item.images %}
+        <div class="image-container mb-1" style="display: inline-block; margin-right: 10px;">
+          <img 
+            src="{{ url_for('static', filename='itempic/' + image.filename) }}" 
+            style="width: 180px; height: auto; border: 1px solid #ddd; border-radius: 4px;"
+          >
+          <div class="mt-1">
+            <input type="checkbox" class="form-check-input" name="delete_images" value="{{ image.id }}" id="delete_{{ image.id }}">
+            <label for="delete_{{ image.id }}" style="font-size: 0.8rem;">Delete</label>
+          </div>
+        </div>
+     {% endfor %}
+       </div>
+   {% endif %}
+  </div>
+
+       <div class=" row mb-3">
+       <label for="picture" class="col-sm-3 col-form-label text-end">Add Picture</label>
+       <div class="col-sm-9">
+       <input type="file" class="form-control" name="picture" multiple accept="image/*"> 
+       </div>
+    </div>
+
+   
+      <div class=" text-center d-grid gap-2 d-md-block mx-auto">
+         <a href="{{ url_for('view_item', item_id=item.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Back
+         </a>
+       <button type="submit" name="submit" class="btn btn-primary " >Update</button>
+      </div>
+</form>
+</div>
+{% endblock %}

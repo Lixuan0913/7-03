@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header">
+            <!-- Back button -->
+            <a href="{{ url_for('view_item', item_id=item.id) }}" class="btn btn-primary mb-2">
+                <i class="fas fa-arrow-left me-1"></i>
+            </a>
+
+            <div class="d-flex align-items-center">
+                <img class="rounded-circle me-2" 
+                     src="{{ url_for('static', filename='profile/pics/' + (post.users.image_file if post.users else 'default.jpg')) }}" 
+                     alt="{{ post.author if post.users else 'Deleted User' }}'s profile image" 
+                     style="height: 40px; width: 40px; object-fit: cover;">
+                
+                {% if post.users and not post.users.is_removed %}
+                    <a href="/profile/{{ post.author }}" class="text-decoration-none fw-bold me-1">{{ post.author }}</a>
+                    <span class="badge 
+                        {% if post.users.identity == 'student' %}bg-primary
+                        {% elif post.users.identity == 'lecturer' %}bg-success
+                        {% elif post.users.identity == 'admin' %}bg-danger
+                        {% else %}bg-secondary{% endif %} ms-1">
+                        {{ post.users.identity }}
+                    </span>
+                {% else %}
+                    <span class="fw-bold text-muted">Deleted User</span>
+                {% endif %}
+            </div>
+            <small class="text-muted">Posted on {{ post.date_posted.strftime('%Y-%m-%d') }}</small>
+        </div>
+
+        <div class="card-body">
+            <!-- Rating -->
+            <div class="mb-4">
+                {% if post.ratings is not none %}
+                    <div class="d-flex align-items-center">
+                        <div class="star-rating-display me-2">
+                            {% for i in range(1, 6) %}
+                                <span class="star {% if i <= post.ratings %}filled{% endif %}">★</span>
+                            {% endfor %}
+                        </div>
+                        <span class="badge bg-warning text-dark">{{ post.ratings }}/5</span>
+                    </div>
+                {% else %}
+                    <div class="text-muted small"><i class="fas fa-star-half-alt me-1"></i> No rating provided</div>
+                {% endif %}
+            </div>
+
+            <!-- Post Text -->
+            <div class="card-text mb-4" style="line-height: 1.6;">
+                {% if post.text and not post.is_removed %}
+                    {{ post.text }}
+                {% else %}
+                    <span class="text-muted fst-italic">[deleted]</span>
+                {% endif %}
+            </div>
+
+            <!-- Images -->
+            {% if post.images %}
+                <div class="image-gallery mb-4">
+                    {% for image in post.images %}
+                        <a href="#image-{{ loop.index }}">
+                            <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}"
+                                 class="zoomable-image-css"
+                                 style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                        </a>
+                        <div id="image-{{ loop.index }}" class="enlarged-image-container">
+                            <a href="#" class="close-button-css">&times;</a>
+                            <img src="{{ url_for('static', filename='reviewpic/' + image.filename) }}" class="enlarged-image">
+                            <div class="navigation-buttons">
+                                {% if post.images|length > 1 %}
+                                    {% if not loop.first %}
+                                        <a href="#image-{{ loop.index - 1 }}" class="prev-button btn btn-primary">❮ Previous</a>
+                                    {% endif %}
+                                    {% if not loop.last %}
+                                        <a href="#image-{{ loop.index + 1 }}" class="next-button btn btn-primary">Next ❯</a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Feedback Section -->
+            <div class="feedback-section mb-3">
+                {% if post.total_feedback_count > 0 %}
+                    <small class="text-muted">{{ post.total_feedback_count }} person{{ 's' if post.total_feedback_count > 1 else '' }} found this review helpful or not</small>
+                {% else %}
+                    <small class="text-muted">Be the first to provide feedback</small>
+                {% endif %}
+                <div class="btn-group btn-group-sm" role="group" style="margin-left: 10px;">
+                    <a href="{{ url_for('feedback', post_id=post.id, action='helpful') }}" 
+                       class="btn {{ 'btn-success' if current_user and current_user.has_helpful_feedback(post.id) else 'btn-outline-success' }}">
+                        <i class="fas fa-thumbs-up"></i> {{ post.helpful_count }}
+                    </a>
+                    <a href="{{ url_for('feedback', post_id=post.id, action='not-helpful') }}" 
+                       class="btn {{ 'btn-danger' if current_user and current_user.has_not_helpful_feedback(post.id) else 'btn-outline-danger' }}">
+                        <i class="fas fa-thumbs-down"></i> {{ post.not_helpful_count }}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments -->
+        <div class="card-footer">
+            <div class="comments-section pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    {% if post.comments|length > 0 %}
+                        <span class="text-primary small">
+                            <i class="fas fa-comments me-1"></i> {{ post.comments|length }} comment(s)
+                        </span>
+                    {% else %}
+                        <span class="text-muted small">
+                            <i class="far fa-comment me-1"></i> No comments yet
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Comment form -->
+                {% if 'user' in session and current_user.identity != 'admin' %}
+                    <form class="mb-4" method="POST" action="/create-comment/{{ post.id }}">
+                        <div class="input-group">
+                            <input type="text" name="text" class="form-control form-control-sm" placeholder="Write a comment..." required>
+                            <button type="submit" class="btn btn-primary btn-sm">Comment <i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </form>
+                {% endif %}
+
+                <!-- Comment list -->
+                <div class="mb-3">
+                    {% for comment in post.comments %}
+                        <div class="comment-item mb-3">
+                            <div class="d-flex justify-content-between">
+                                <div class="d-flex align-items-start">
+                                    <img class="rounded-circle me-2" 
+                                         src="{{ url_for('static', filename='profile/pics/' + (comment.users.image_file if comment.users else 'default.jpg')) }}" 
+                                         alt="{{ comment.author if comment.users else 'Deleted User' }}'s profile image" 
+                                         style="height: 30px; width: 30px; object-fit: cover;">
+
+                                    <div>
+                                        <div>
+                                            {% if comment.users and not comment.users.is_removed %}
+                                                <a href="/profile/{{ comment.author }}" class="text-decoration-none fw-bold">{{ comment.author }}</a>
+                                                <span class="badge 
+                                                    {% if comment.users.identity == 'student' %}bg-primary
+                                                    {% elif comment.users.identity == 'lecturer' %}bg-success
+                                                    {% elif comment.users.identity == 'admin' %}bg-danger
+                                                    {% else %}bg-secondary{% endif %} ms-1">
+                                                    {{ comment.users.identity }}
+                                                </span>
+                                            {% else %}
+                                                <span class="fw-bold text-muted">Deleted User</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="small">
+                                            {% if comment.text %}
+                                                {{ comment.text }}
+                                            {% else %}
+                                                <span class="text-muted fst-italic">[deleted]</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if session['user'] == comment.author or session['user'] == post.author %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a href="/edit-comment/{{ comment.id }}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                            <li><a href="/delete-comment/{{ comment.id }}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if not loop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -64,6 +64,15 @@ coverage.xml
 Thumbs.db
 
 #Database
-users.sqlite3
+database.sqlite3
 
 __pycache__
+
+#migration
+alembic.ini
+env.py
+README
+script.py.mako
+1c2ae3f6e3e7_database.py
+
+static
