@@ -32,9 +32,6 @@ def init_mail(app):
     mail.init_app(app)
     logging.info("Flask-Mail initialized")
 
-    logging.info("MAIL_USERNAME: %s", app.config['MAIL_USERNAME'])
-    logging.info("MAIL_PASSWORD is set: %s", bool(app.config['MAIL_PASSWORD']))
-
 def generate_token(email):
     return s.dumps(email, salt="email-confirm")
 
