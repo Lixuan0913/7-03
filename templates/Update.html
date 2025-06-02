@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="mb-3">
-    <form action="/update/{{user.username}}" method="POST" enctype="multipart/form-data"  class="update-form">
+    <form action="{{ url_for('update') }}" method="POST" enctype="multipart/form-data" class="update-form">
        <h1>Update Form</h1>
       
 
