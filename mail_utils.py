@@ -1,36 +1,21 @@
-from flask_mail import Mail , Message
-from flask import render_template
+import os
 import logging
 import traceback
+from threading import Thread
+from flask import render_template, current_app
 from dotenv import load_dotenv
-import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Email, To, Content
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
-
+# Load environment variables
 load_dotenv()
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
+SECRET_KEY = os.environ['SECRET_KEY']
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
-
-mail=Mail()
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-s=URLSafeTimedSerializer(SECRET_KEY)
-
-def init_mail(app):
-    """Initialize Flask-Mail with application configuration"""
-    # Set email configuration
-    app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER")
-    app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT", 587))
-    app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS", "True").lower() == "true"
-    app.config['MAIL_USE_SSL'] = os.getenv("MAIL_USE_SSL", "False").lower() == "true"
-    app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")  
-    app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")  
-    app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
-    
-    # Initialize mail with app
-    mail.init_app(app)
-    logging.info("Flask-Mail initialized")
+# Token serializer
+s = URLSafeTimedSerializer(SECRET_KEY)
 
 def generate_token(email):
     return s.dumps(email, salt="email-confirm")
@@ -42,38 +27,52 @@ def confirm_token(token, expiration=3600):
         logging.warning("Verification token expired.")
         return None
     except BadSignature:
-        logging.warning("Inavlid verification token.")
+        logging.warning("Invalid verification token.")
         return None
 
+# ✅ Background email sending
+def send_email_async(app, subject, to, html_content):
+    with app.app_context():
+        try:
+            message = Mail(
+                from_email=Email(MAIL_DEFAULT_SENDER, name="No-Reply YouMMU Reviews"),
+                to_emails=To(to),
+                subject=subject,
+                html_content=Content("text/html", html_content)
+            )
+            sg = SendGridAPIClient(api_key=SENDGRID_API_KEY)
+            response = sg.send(message)
+            logging.info(f"Email sent to {to}. Status code: {response.status_code}")
+        except Exception as e:
+            logging.error(f"Async error sending email to {to}: {str(e)}")
+            logging.error(traceback.format_exc())
+
+# ✅ Kick off thread without blocking
+def send_email(subject, to, html_content):
+    try:
+        app = current_app._get_current_object()  # Safe access to app context
+        Thread(target=send_email_async, args=(app, subject, to, html_content)).start()
+        return True  # Return immediately
+    except Exception as e:
+        logging.error(f"Error starting email thread: {str(e)}")
+        return False
+
+# Verification email
 def send_verification_email(to, verify_url):
     try:
-        msg = Message(
-            subject="Verify Your Acount",
-            recipients=[to],
-            html=render_template('verify_email.html', verify_url=verify_url),
-            sender=("No-Reply YouMMU Reviews", "lixuanyap4@gmail.com")
-        )
-        mail.send(msg)
-        logging.info(f"Verification email sent to {to} .")
-        return True
+        html = render_template('verify_email.html', verify_url=verify_url)
+        return send_email("Verify Your Account", to, html)
     except Exception as e:
-        logging.error(f"Error send email to {to}: {str(e)}")
+        logging.error(f"Error in send_verification_email: {str(e)}")
         logging.error(traceback.format_exc())
+        return False
 
-    
-def send_reset_email(to,reset_url):
+# Reset email
+def send_reset_email(to, reset_url):
     try:
-        msg = Message(
-            subject="Reset Password",
-            recipients=[to],
-            html=render_template('reset_email.html', reset_url=reset_url),
-            sender=("No-Reply YouMMU Reviews", "lixuanyap4@gmail.com")
-        )
-        mail.send(msg)
-        logging.info(f"Verification email sent to {to} .")
-        return True
-    
+        html = render_template('reset_email.html', reset_url=reset_url)
+        return send_email("Reset Password", to, html)
     except Exception as e:
-        logging.error(f"Error sending reset email to {to}: {str(e)}")
+        logging.error(f"Error in send_reset_email: {str(e)}")
         logging.error(traceback.format_exc())
         return False

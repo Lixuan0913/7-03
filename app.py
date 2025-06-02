@@ -2,28 +2,28 @@ from flask import Flask,render_template,request,session,flash,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from webforms import SearchForm
+import secrets
 from datetime import datetime
-from mail_utils import init_mail, generate_token, confirm_token, send_verification_email,send_reset_email
+from mail_utils import generate_token, confirm_token, send_verification_email,send_reset_email
 import re
 from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
-app = Flask(__name__,template_folder="templates")
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
-app.secret_key="hello"
-UPLOAD_FOLDER="static/profile/pics"
-POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
-ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
-app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
-app.config['POST_IMAGE_FOLDER']=POST_IMAGE_FOLDER
-app.config['ITEM_IMAGE_FOLDER']=ITEM_IMAGE_FOLDER
-os.makedirs(POST_IMAGE_FOLDER, exist_ok=True)
-init_mail(app)
+# 1. First define BASE_DIR
+BASE_DIR = "/home/eryne/7-03"
 
-# Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
+# 2. Then define all folder paths
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'profile', 'pics')
+POST_IMAGE_FOLDER = os.path.join(BASE_DIR, 'static', 'reviewpic')
+ITEM_IMAGE_FOLDER = os.path.join(BASE_DIR, 'static', 'itempic')
+
+# 3. Now create Flask app and configure it
+app = Flask(__name__, template_folder="templates")
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
+app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 db = SQLAlchemy(app)
 
@@ -239,7 +239,7 @@ def signup():
             return redirect(url_for("signup"))
         
         # Check if the email is already registered
-        existing_email = Users.query.filter_by(email=email).first()
+        existing_email = Users.query.filter_by(email=email.lower()).first()
         if existing_email:
             flash("Email already registered", "danger")
             return redirect(url_for("signup"))
