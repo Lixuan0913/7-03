@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
+
 # 1. First define BASE_DIR
 BASE_DIR = "/home/eryne/7-03"
 
@@ -24,6 +25,11 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
+
+# Configure SQLite database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
+
 
 db = SQLAlchemy(app)
 
@@ -576,17 +582,8 @@ def delete_post(id):
             except Exception as e:
                 flash(f"Failed to delete image {image.filename}: {e}", category="warning")
 
-        # Mark all comments as removed
-        for reply in post.comments:
-            reply.is_removed = True
-            # Delete reports for this comment
-            Report.query.filter_by(
-                reported_content_id=reply.id,
-                content_type='comment'
-            ).delete()
-
         db.session.commit()
-        flash("Post and its comments have been removed", category="success")
+        flash("Post have been removed", category="success")
     except Exception as e:
         db.session.rollback()
         flash(f"An error occurred while deleting the post: {e}", category="danger")
@@ -860,97 +857,85 @@ def profile(username):
     # Render the profile page template, passing the user, profile image URL, and user's posts
     return render_template("Profile.html", user=profile_user, image_file=image_file,posts=user_posts)
 
-@app.route("/update/<username>", methods=["GET", "POST"])
-def update(username):
-    # Find the current_user by username
-    current_user = Users.query.filter_by(username=username).first()
-    # Flash message if not user found
+@app.route("/update", methods=["GET", "POST"])
+def update():
+    # Ensure user is logged in
+    if 'user_id' not in session:
+        flash("You must be logged in to update your profile.", "warning")
+        return redirect(url_for("login"))
+
+    # Get the current user by ID (safe from username changes)
+    current_user = Users.query.get(session['user_id'])
     if not current_user:
-        flash("User not found")
-        return redirect(url_for("Login"))
-    
+        flash("User not found", "danger")
+        return redirect(url_for("login"))
+
     if request.method == "POST":
-        # Get form data
         new_username = request.form.get("username")
         new_password = request.form.get("password")
         confirm_password = request.form.get("confirm-password")
         image_file = request.files.get("profile-picture")
-        reset_picture=request.form.get("reset_picture")
-        
-        # Update username if change
-        if new_username:
+        reset_picture = request.form.get("reset_picture")
+
+        # Update username if provided
+        if new_username and new_username != current_user.username:
             current_user.username = new_username
 
-        # Update password if provided
+        # Update password if provided and confirmed
         if new_password:
-            # Check if both password are match
             if new_password == confirm_password:
-                # If match then hash and update the password
                 current_user.password = generate_password_hash(new_password)
             else:
-                # Flash a message if not match
-                flash("Password does not match", "danger")
-                return redirect(url_for("update", username=current_user.username))
+                flash("Passwords do not match.", "danger")
+                return redirect(url_for("update"))
 
-        # Handle image upload if provided
+        # Handle profile picture upload
         if image_file and image_file.filename != '':
+            filename = secure_filename(image_file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
 
-            # Delete old image if it's not the default
+            if file_ext not in ['.jpg', '.jpeg', '.png']:
+                flash("Only JPG or PNG files are allowed.", "danger")
+                return redirect(url_for("update"))
+
+            # Delete old picture if not default
             if current_user.image_file != 'default.jpg':
-              try:
                 old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
                 if os.path.exists(old_image_path):
-                   os.remove(old_image_path)
-              except Exception as e:
-                 flash(f"Could not delete old image: {str(e)}", "warning")
+                    try:
+                        os.remove(old_image_path)
+                    except Exception as e:
+                        flash(f"Could not delete old image: {str(e)}", "warning")
 
-            # Secure filename and check file extension
-            filename = secure_filename(image_file.filename)
-            file_ext = os.path.splitext(filename)[1].lower() 
-            
-            # Check if file is in jpg/png/jpeg
-            if file_ext not in ['.jpg', '.jpeg', '.png']:
-              # If not then flash a message
-              flash("Only JPG or PNG are allowed","alert")
-              return redirect(url_for("update", username=current_user.username))
-            
-            # Generate a unique filename to avoid collisions and for security
-            unique_filename = str(uuid.uuid1()) + '_' + filename
+            # Save new image
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
             image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             image_file.save(image_path)
-
-            # Update user's image file to the new filename
             current_user.image_file = unique_filename
-        
-        # Handle resetting profile picture to default
+
+        # Handle reset picture request
         if reset_picture:
-            # Only attempt to delete old image if it's not already the default picture
             if current_user.image_file != 'default.jpg':
-              try:
-                 # Construct the full file path of the current profile image
-                 old_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
-                 # Check if the file exists before attempting to delete
-                 if os.path.exists(old_path):
-                    os.remove(old_path) # Delete the old profile picture file from storage
-
-              except Exception as e:
-                 # If deletion fails, show a warning message but continue execution
-                 flash(f"Couldn't delete old image: {str(e)}", "warning")
-
-            # Set image_file to default
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], current_user.image_file)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception as e:
+                        flash(f"Couldn't delete old image: {str(e)}", "warning")
             current_user.image_file = 'default.jpg'
-            flash("Profile picture reset to default", "success")
-        
-        # Commit all changes to the database
+            flash("Profile picture reset to default.", "success")
+
+        # Commit all updates to the DB
         try:
             db.session.commit()
-            flash("Update Successful", "success")
-            # Redirect to the updated profile page
+            flash("Profile updated successfully.", "success")
             return redirect(url_for("profile", username=current_user.username))
         except Exception as e:
             db.session.rollback()
             flash(f"Error updating profile: {str(e)}", "danger")
-    # Render the update form, passing current user and image url
+            return redirect(url_for("update"))
+
+    # GET method: show update form
     return render_template("Update.html", user=current_user, current_image=url_for('static', filename='profile/pics/' + current_user.image_file))
 
 @app.route("/feedback/<int:post_id>/<action>")
@@ -1635,13 +1620,10 @@ def reject_item(item_id):
 
 @app.before_request #Runs before request is processed
 def check_account_status():
-    if 'user' in session:
-        user = Users.query.filter_by(username=session['user']).first()
+    if 'user_id' in session:
+        user = Users.query.get(session['user_id'])  # Use primary key lookup
         if not user or user.is_removed:
-            # Clear session and force logout
-            session.pop("user", None)
-            session.pop("user_id", None)
-            session.pop("identity", None)
+            session.clear()
             flash("Your account has been deactivated or removed.", "danger")
             return redirect(url_for("login"))
 
