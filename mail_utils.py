@@ -20,7 +20,7 @@ s = URLSafeTimedSerializer(SECRET_KEY)
 def generate_token(email):
     return s.dumps(email, salt="email-confirm")
 
-def confirm_token(token, expiration=86400):
+def confirm_token(token, expiration=3600):
     try:
         return s.loads(token, salt="email-confirm", max_age=expiration)
     except SignatureExpired:
