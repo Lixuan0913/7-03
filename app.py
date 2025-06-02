@@ -238,7 +238,7 @@ def signup():
             return redirect(url_for("signup"))
         
         # Check if the email is already registered
-        existing_email = Users.query.filter_by(email=email).first()
+        existing_email = Users.query.filter_by(email=email.lower()).first()
         if existing_email:
             flash("Email already registered", "danger")
             return redirect(url_for("signup"))
