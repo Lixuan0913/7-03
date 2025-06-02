@@ -574,17 +574,8 @@ def delete_post(id):
             except Exception as e:
                 flash(f"Failed to delete image {image.filename}: {e}", category="warning")
 
-        # Mark all comments as removed
-        for reply in post.comments:
-            reply.is_removed = True
-            # Delete reports for this comment
-            Report.query.filter_by(
-                reported_content_id=reply.id,
-                content_type='comment'
-            ).delete()
-
         db.session.commit()
-        flash("Post and its comments have been removed", category="success")
+        flash("Post have been removed", category="success")
     except Exception as e:
         db.session.rollback()
         flash(f"An error occurred while deleting the post: {e}", category="danger")
