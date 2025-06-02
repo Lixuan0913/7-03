@@ -11,7 +11,6 @@ import os
 
 app = Flask(__name__,template_folder="templates")
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
-app.secret_key="hello"
 UPLOAD_FOLDER="static/profile/pics"
 POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
 ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
