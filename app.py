@@ -10,16 +10,10 @@ from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'profile','pics')
+POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
+ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
 
-# 1. First define BASE_DIR
-BASE_DIR = "/home/eryne/7-03"
-
-# 2. Then define all folder paths
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'profile', 'pics')
-POST_IMAGE_FOLDER = os.path.join(BASE_DIR, 'static', 'reviewpic')
-ITEM_IMAGE_FOLDER = os.path.join(BASE_DIR, 'static', 'itempic')
-
-# 3. Now create Flask app and configure it
 app = Flask(__name__, template_folder="templates")
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -304,11 +298,11 @@ def verify_email(token):
         # If user is already verified
         if user.verified:
             flash("Account already verified", "info")
-        else:
-            # Verify the user's account and save changes
-            user.verified = True
-            db.session.commit()
-            flash("Your account has been verified. You can now log in.", "success")
+            
+        # Verify the user's account and save changes
+        user.verified = True
+        db.session.commit()
+        flash("Your account has been verified. You can now log in.", "success")
         
         return redirect(url_for("login"))  # redirect to login after verification
     
