@@ -1111,23 +1111,20 @@ def add_item():
 
 @app.route("/viewitem/<int:item_id>", methods=["GET", "POST"])
 def view_item(item_id):
-     # Query the item by ID and ensure it is approved
-     # Also joinload the image,post,comment and replies for the item
     item = Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
-    ).filter_by(id=item_id, is_approved=True).first_or_404() # 404 if item not found or not approved
+    ).filter_by(id=item_id, is_approved=True).first_or_404()
     
     for post in item.posts:
         post.comments = Replies.query.filter_by(post_id=post.id).all()
 
-    # Retrieve currently logged-in user based on session user_id (if any)
     user = Users.query.get(session.get('user_id'))
     user_identity = user.identity if user else None
 
     # Calculate average rating and rating count
-    ratings = [post.ratings for post in item.posts if post.ratings is not None]
+    ratings = [post.ratings for post in item.posts if post.ratings is not None and not post.is_removed]
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
 
@@ -1135,12 +1132,12 @@ def view_item(item_id):
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
     
-     # Query all posts related to this item, order by most recent first, and paginate results
+    # Query all posts related to this item, order by most recent first, and paginate results
     posts_query = Post.query.filter_by(item_id=item.id)
     posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
-    # Render the 'view_item.html' template with all necessary data:
-    return render_template('view_item.html',item=item,
+    return render_template('view_item.html',
+                         item=item,
                          user_identity=user_identity,
                          average_rating=average_rating,
                          rating_count=rating_count,
