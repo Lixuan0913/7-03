@@ -149,6 +149,17 @@ class Report(db.Model):
 
     reporter = db.relationship('Users', backref='reports')
 
+    #To get text content for reports
+    @property
+    def reported_text(self):
+        if self.content_type == 'post':
+            post = Post.query.get(self.reported_content_id)
+            return post.text if post else None
+        elif self.content_type == 'comment':
+            comment = Replies.query.get(self.reported_content_id)
+            return comment.text if comment else None
+        return None
+
 # Simple profanity filter
 class ProfanityFilter:
     def __init__(self):
@@ -1302,32 +1313,33 @@ def delete_item(item_id):
 
     return redirect(url_for('home'))
 
-@app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
+@app.route('/reported/post/<int:post_id>', methods=['GET', 'POST'])
 def report_post(post_id):
     if 'user' not in session:
         flash("Please login to report content", category="danger")
         return redirect(url_for('login'))
-    
-    # To find the post
+
+    # Get the post to be reported
     post = Post.query.get_or_404(post_id)
 
     if request.method == 'POST':
         reason = request.form.get('reason')
         details = request.form.get('details')
 
-        if not reason: 
+        if not reason:
             flash("Please select a reason for reporting", category="danger")
         else:
-            #Checks if user already reported this post
+            # Check if user already reported this post
             existing_report = Report.query.filter_by(
-                
-                reporter_id=session['user_id'], # Current logged in session
-                reported_content_id=post_id, # Get reported post id 
-                content_type='post').first()
-            
+                reporter_id=session['user_id'],
+                reported_content_id=post_id,
+                content_type='post'
+            ).first()
+
             if existing_report:
                 flash("You have already reported this post", category="info")
             else:
+                # Create new report
                 report = Report(
                     reporter_id=session['user_id'],
                     reported_content_id=post_id,
@@ -1340,8 +1352,10 @@ def report_post(post_id):
                 flash("Your report has been submitted", category="success")
 
             return redirect(url_for('view_item', item_id=post.item_id))
-    
+
+    # GET request
     return render_template('report_form.html', content=post, content_type="post")
+
 
 @app.route("/report/comment/<int:comment_id>", methods=["GET", "POST"])
 def report_comment(comment_id):
