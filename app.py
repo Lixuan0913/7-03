@@ -10,10 +10,9 @@ from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
-# Update the upload folder paths to use absolute paths
-UPLOAD_FOLDER = '/home/eryne/7-03/static/profile/pics'
-POST_IMAGE_FOLDER = '/home/eryne/7-03/static/reviewpic'
-ITEM_IMAGE_FOLDER = '/home/eryne/7-03/static/itempic'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'profile','pics')
+POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
+ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
 
 app = Flask(__name__, template_folder="templates")
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
@@ -22,7 +21,7 @@ app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/eryne/7-03/database.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
@@ -148,6 +147,17 @@ class Report(db.Model):
     details = db.Column(db.String(200))
 
     reporter = db.relationship('Users', backref='reports')
+
+    #To get text content for reports
+    @property
+    def reported_text(self):
+        if self.content_type == 'post':
+            post = Post.query.get(self.reported_content_id)
+            return post.text if post else None
+        elif self.content_type == 'comment':
+            comment = Replies.query.get(self.reported_content_id)
+            return comment.text if comment else None
+        return None
 
 # Simple profanity filter
 class ProfanityFilter:
@@ -1101,20 +1111,23 @@ def add_item():
 
 @app.route("/viewitem/<int:item_id>", methods=["GET", "POST"])
 def view_item(item_id):
+    # Query the item by ID and ensure it is approved
+     # Also joinload the image,post,comment and replies for the item
     item = Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
-    ).filter_by(id=item_id, is_approved=True).first_or_404()
+    ).filter_by(id=item_id, is_approved=True).first_or_404() # 404 if item not found or not approved
     
     for post in item.posts:
         post.comments = Replies.query.filter_by(post_id=post.id).all()
 
+    # Retrieve currently logged-in user based on session user_id (if any)
     user = Users.query.get(session.get('user_id'))
     user_identity = user.identity if user else None
 
     # Calculate average rating and rating count
-    ratings = [post.ratings for post in item.posts if post.ratings is not None and not post.is_removed]
+    ratings = [post.ratings for post in item.posts if post.ratings is not None]
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
 
@@ -1122,12 +1135,12 @@ def view_item(item_id):
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
     
-    # Query all posts related to this item, order by most recent first, and paginate results
+     # Query all posts related to this item, order by most recent first, and paginate results
     posts_query = Post.query.filter_by(item_id=item.id)
     posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
-    return render_template('view_item.html',
-                         item=item,
+    # Render the 'view_item.html' template with all necessary data:
+    return render_template('view_item.html',item=item,
                          user_identity=user_identity,
                          average_rating=average_rating,
                          rating_count=rating_count,
@@ -1299,32 +1312,33 @@ def delete_item(item_id):
 
     return redirect(url_for('home'))
 
-@app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
+@app.route('/reported/post/<int:post_id>', methods=['GET', 'POST'])
 def report_post(post_id):
     if 'user' not in session:
         flash("Please login to report content", category="danger")
         return redirect(url_for('login'))
-    
-    # To find the post
+
+    # Get the post to be reported
     post = Post.query.get_or_404(post_id)
 
     if request.method == 'POST':
         reason = request.form.get('reason')
         details = request.form.get('details')
 
-        if not reason: 
+        if not reason:
             flash("Please select a reason for reporting", category="danger")
         else:
-            #Checks if user already reported this post
+            # Check if user already reported this post
             existing_report = Report.query.filter_by(
-                
-                reporter_id=session['user_id'], # Current logged in session
-                reported_content_id=post_id, # Get reported post id 
-                content_type='post').first()
-            
+                reporter_id=session['user_id'],
+                reported_content_id=post_id,
+                content_type='post'
+            ).first()
+
             if existing_report:
                 flash("You have already reported this post", category="info")
             else:
+                # Create new report
                 report = Report(
                     reporter_id=session['user_id'],
                     reported_content_id=post_id,
@@ -1337,7 +1351,8 @@ def report_post(post_id):
                 flash("Your report has been submitted", category="success")
 
             return redirect(url_for('view_item', item_id=post.item_id))
-    
+
+    # GET request
     return render_template('report_form.html', content=post, content_type="post")
 
 @app.route("/report/comment/<int:comment_id>", methods=["GET", "POST"])

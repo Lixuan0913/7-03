@@ -2,7 +2,7 @@
 
 {% block admin_content %}
 <h2>Content Reports</h2>
-{% if report %}
+{% if reports %}
     <div class="table-responsive mt-4">
         <table class="table table-striped">
             <thead>
@@ -23,11 +23,7 @@
                     <td>{{ report.content_type }}</td>
                     <td>{{ report.reporter.username }}</td>
                     <td>
-                        {% if report.content_type == 'post' %}
-                            Post #{{ report.reported_content_id }}
-                        {% else %}
-                            Comment #{{ report.reported_content_id }}
-                        {% endif %}
+                        {{ report.reported_text }}
                     </td>
                     <td>{{ report.reason }}</td>
                     <td>{{ report.details|default('', true) }}</td>
