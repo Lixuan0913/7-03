@@ -449,11 +449,12 @@ def delete_user(email):
     if request.method=="POST":
        # Look up the user by email and then delete
       user = Users.query.filter_by(email=email).first()
-      db.session.delete(user)
-      db.session.commit()
-      flash("User deleted successfully.","success")
-    else:
-         # If no user was found with that email
+      if user:
+         # Soft delete by setting is_removed 
+        user.is_removed = True
+        db.session.commit()
+        flash("User account has been deactivated.", "success")
+      else:
         flash("User not found.", "danger")
     return redirect(url_for("signup"))
 
@@ -1012,6 +1013,11 @@ def add_item():
         if not (name and description):
             flash("Please enter all required fields", "danger")
             return redirect(url_for('add_item'))
+        
+        # Check for profanity in name and description
+        if profanity_filter.contains_profanity(name) or profanity_filter.contains_profanity(description):
+         flash("Item name or description contains inappropriate language.", "danger")
+         return redirect(url_for('add_item'))
         
         # Ensure at least one image was uploaded by checking if file name is empty
         if not review_pic or any(file.filename == '' for file in review_pic):

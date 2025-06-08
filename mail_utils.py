@@ -3,6 +3,7 @@ import logging
 import traceback
 from threading import Thread
 from flask import render_template, current_app
+import secrets
 from dotenv import load_dotenv
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
@@ -12,7 +13,7 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 load_dotenv()
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
-SECRET_KEY = os.environ['SECRET_KEY']
+SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 # Token serializer
 s = URLSafeTimedSerializer(SECRET_KEY)
