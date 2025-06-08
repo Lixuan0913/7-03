@@ -10,9 +10,10 @@ from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'profile','pics')
-POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
-ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
+# Update the upload folder paths to use absolute paths
+UPLOAD_FOLDER = '/home/eryne/7-03/static/profile/pics'
+POST_IMAGE_FOLDER = '/home/eryne/7-03/static/reviewpic'
+ITEM_IMAGE_FOLDER = '/home/eryne/7-03/static/itempic'
 
 app = Flask(__name__, template_folder="templates")
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
@@ -21,7 +22,7 @@ app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/eryne/7-03/database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
