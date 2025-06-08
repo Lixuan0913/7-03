@@ -15,6 +15,7 @@ POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic
 ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
 
 app = Flask(__name__, template_folder="templates")
+app.secret_key="hello"
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
