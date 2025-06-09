@@ -1,15 +1,15 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "admin_base.html" %}
+{% block admin_content %}
 <div class="container mt-4">
     <h2>Pending Items for Approval</h2>
-    
+
     {% if items %}
     <div class="row">
         {% for item in items %}
         <div class="col-md-4 mb-4">
             <div class="card">
                 {% if item.images %}
-                <img src="{{ url_for('static', filename='itempic/' + item.images[0].filename) }}" 
+                <img src="{{ url_for('static', filename='itempic/' + item.images[0].filename) }}"
                      class="card-img-top" alt="{{ item.name }}">
                 {% endif %}
                 <div class="card-body">
@@ -17,9 +17,9 @@
                     <p class="card-text">{{ item.description }}</p>
                     <p>Submitted by: {{ item.submitted_by }}</p>
                     <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('approve_item', item_id=item.id) }}" 
+                        <a href="{{ url_for('approve_item', item_id=item.id) }}"
                            class="btn btn-success">Approve</a>
-                        <a href="{{ url_for('reject_item', item_id=item.id) }}" 
+                        <a href="{{ url_for('reject_item', item_id=item.id) }}"
                            class="btn btn-danger">Reject</a>
                     </div>
                 </div>

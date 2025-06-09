@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 import uuid as uuid
 import os
 
+# Update the upload folder paths to use absolute paths
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'profile','pics')
 POST_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'reviewpic')
 ITEM_IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'itempic')
@@ -21,7 +22,7 @@ app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/eryne/7-03/database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
@@ -30,12 +31,12 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
-    password = db.Column(db.String(12), nullable=False)  
+    password = db.Column(db.String(12), nullable=False)
     image_file=db.Column(db.String(100),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)# ensure student that are verified
     post = db.relationship('Post', backref='users', passive_deletes=True) # Sets a relationship with Post table for 1 to Many relationship
-    comments = db.relationship('Replies', backref='users', passive_deletes=True) 
+    comments = db.relationship('Replies', backref='users', passive_deletes=True)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_removed = db.Column(db.Boolean, default=False)
 
@@ -43,7 +44,7 @@ class Users(db.Model):
         self.email=email
         self.username=username
         self.password=password
-        
+
         self.identity=self.get_identity()
 
     def get_identity(self):
@@ -54,23 +55,23 @@ class Users(db.Model):
         if self.email.endswith("@admin.mmu.edu.my"):
             self.is_admin = True
             return "admin"
-       
+
     def has_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            reviewer=self.username,  
+            reviewer=self.username,
             post_id=post_id,
             is_helpful=True
         ).first()
         return feedback is not None
-    
+
     def has_not_helpful_feedback(self, post_id):
         feedback = Feedback.query.filter_by(
-            reviewer=self.username,  
+            reviewer=self.username,
             post_id=post_id,
             is_helpful=False
         ).first()
         return feedback is not None
-        
+
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(100), nullable=False)
@@ -84,11 +85,11 @@ class Post(db.Model):
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)  # Add this line
     comments = db.relationship('Replies', backref='post', cascade="all, delete-orphan")
     images=db.relationship('Image', backref='post', cascade="all, delete-orphan", passive_deletes=True)
-    helpful_count = db.Column(db.Integer, default=0) 
-    not_helpful_count = db.Column(db.Integer, default=0)    
+    helpful_count = db.Column(db.Integer, default=0)
+    not_helpful_count = db.Column(db.Integer, default=0)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"))
     is_removed = db.Column(db.Boolean, default=False)
-    
+
     @property
     def total_feedback_count(self):
         return self.helpful_count + self.not_helpful_count
@@ -99,9 +100,9 @@ class Replies(db.Model):
     author = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete="CASCADE"), nullable=False)
     is_removed = db.Column(db.Boolean, default=False)
-    
+
 item_tags = db.Table('item_tags',
-    db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),   
+    db.Column('item_id', db.Integer, db.ForeignKey('item.id', ondelete="CASCADE"), primary_key=True),
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete="CASCADE"), primary_key=True)
 )
 
@@ -127,17 +128,17 @@ class Item(db.Model):
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    reviewer = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False) 
+    reviewer = db.Column(db.String(100), db.ForeignKey('users.username', ondelete="CASCADE"), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
     is_helpful = db.Column(db.Boolean, nullable=False)
-    
+
     # Relationship to Users via username
     user = db.relationship('Users', backref='feedbacks', foreign_keys=[reviewer])
-    
+
     __table_args__ = (
         db.UniqueConstraint('reviewer', 'post_id', name='_user_post_uc'),
     )
-    
+
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     reporter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -162,14 +163,14 @@ class Report(db.Model):
 # Simple profanity filter
 class ProfanityFilter:
     def __init__(self):
-        # List of inappropriate words 
+        # List of inappropriate words
         self.banned_words = [
             'shit', 'fuck', 'asshole', 'bitch', 'cunt',
             'dick', 'pussy', 'bastard', 'whore', 'slut',
             'fag', 'nigger', 'retard', 'damn', 'hell',
             'suck', 'nigga', 'fucking', 'ass', 'cibai'
         ]
-        
+
         # Create variations with common misspellings
         self.word_variations = []
         for word in self.banned_words:
@@ -182,19 +183,19 @@ class ProfanityFilter:
             self.word_variations.append(word.replace('u', '0'))
             self.word_variations.append(word + 'head')
             self.word_variations.append(word + 'hole')
-    
+
     def contains_profanity(self, text):
         # Check if text contains any banned words
         if not text:
             return False
-            
+
         text_lower = text.lower()
         words = re.findall(r'\w+', text_lower) # breaks down words ex. ['f0ck', 'you']
         return any(bad_word in self.word_variations for bad_word in words)
-    
+
 # Create a global instance
 profanity_filter = ProfanityFilter()
-    
+
 @app.route("/")
 @app.route("/home")
 def home():
@@ -202,18 +203,18 @@ def home():
     if "user" not in session:
         flash("You aren't logged in. Please login or signup to write reviews.", "danger")
         return render_template("intro.html")
-    
+
     # Get current page from form submission or default to 1
     page = int(request.form.get('page', 1)) if request.method == 'POST' else int(request.args.get('page', 1))
     per_page = 6  # Items per load
-    
+
     # Load item that approved with pagination
     items_pagination = Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.tags),
         db.joinedload(Item.posts)
     ).filter_by(is_approved=True).order_by(Item.name).paginate(page=page, per_page=per_page, error_out=False)
-      
+
     return render_template("home.html", items_pagination=items_pagination)
 
 @app.route("/signup",methods=["GET","POST"])
@@ -226,34 +227,34 @@ def signup():
         actual_password=request.form["password"]
         confirm_password=request.form["confirm-password"]
 
-        #Check if email or username or password has entered    
+        #Check if email or username or password has entered
         if not email  or not username  or not actual_password:
            flash("Please fill out all field")
            return redirect(url_for("signup"))
-        
+
         #Check MMU email format using regex
         pattern=r'^[a-zA-Z\.]+@(student\.mmu\.edu\.my|mmu\.edu\.my|admin\.mmu\.edu\.my)$'
         if not re.match(pattern, email):
             flash("Please use a valid MMU email address", "danger")
             return redirect(url_for("signup"))
-        
+
         # Check if passwords match with confirm_password
         if actual_password != confirm_password:
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
-        
+
         # Check if the username already exists
         existing_user = Users.query.filter_by(username=username).first()
         if existing_user:
             flash("Username already exists", "danger")
             return redirect(url_for("signup"))
-        
+
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
         if existing_email:
             flash("Email already registered", "danger")
             return redirect(url_for("signup"))
-      
+
         try:
             # Create new user with hashed password
             user = Users(
@@ -261,7 +262,7 @@ def signup():
                 username=username,
                 password=generate_password_hash(actual_password,method="pbkdf2:sha256")
                 )
-            
+
             user.identity = user.get_identity()  # Force identity for user
 
             if user.identity == "student":
@@ -277,8 +278,8 @@ def signup():
             db.session.commit()
 
             return redirect(url_for("login"))
-      
-            
+
+
         except Exception as e:
              # Handle database errors
             db.session.rollback()
@@ -296,7 +297,7 @@ def verify_email(token):
         if not email:
             flash("Invalid or expired verification link", "danger")
             return redirect(url_for("signup"))
-        
+
         email = email.lower()# Set email to lowercase()
         # Find the user by email in the database
         user = Users.query.filter_by(email=email).first()
@@ -304,30 +305,30 @@ def verify_email(token):
         if not user:
             flash("User not found", "danger")
             return redirect(url_for("signup"))
-        
+
         # If user is already verified
         if user.verified:
             flash("Account already verified", "info")
-            
+
         # Verify the user's account and save changes
         user.verified = True
         db.session.commit()
         flash("Your account has been verified. You can now log in.", "success")
-        
+
         return redirect(url_for("login"))  # redirect to login after verification
-    
+
     except Exception as e:
         # Handle any unexpected errors during verification
         flash("Verification failed: " + str(e), "danger")
         return redirect(url_for("signup"))
 
-#for request reset password page   
+#for request reset password page
 @app.route("/request_reset", methods=["GET", "POST"])
 def request_reset():
     if request.method == "POST":
       # Get the email input from the reset password form
       email=request.form.get("request_email")
-      
+
       # Look up the user in the database by their email (lowercase)
       user=Users.query.filter_by(email=email.lower()).first()
 
@@ -341,8 +342,8 @@ def request_reset():
           # Notify the user that the email has been sent
           flash('An email has been sent to reset your password.', 'info')
           # Redirect them to the login page after the email is sent
-          return redirect(url_for('login')) 
-        
+          return redirect(url_for('login'))
+
       else:
             # If no account was found with the entered email
             flash('No account found with that email address.', 'warning')
@@ -365,7 +366,7 @@ def reset_token(token):
          # If user does not exist in the database
         flash('Invalid user.', 'warning')
         return redirect(url_for("request_reset"))
-    
+
     if request.method == "POST":
         # Get both password
         new_password = request.form.get('new_password')
@@ -374,13 +375,13 @@ def reset_token(token):
         # Check if both password fields are filled
         if not new_password or not confirm_password:
             flash('Both fields are required.', 'warning')
-            return redirect(url_for("reset_token",token=token)) 
-        
+            return redirect(url_for("reset_token",token=token))
+
         # Check if the new password and confirm password match
         if new_password != confirm_password:
             flash('Passwords do not match.', 'warning')
-            return redirect(url_for("reset_token",token=token))   
-        
+            return redirect(url_for("reset_token",token=token))
+
          # Hash the new password and update it in the database
         user.password = generate_password_hash(new_password)
         db.session.commit()
@@ -388,13 +389,13 @@ def reset_token(token):
         # Notify the user of successful password update
         flash('Your password has been updated! You can now log in.', 'success')
         return redirect(url_for('login'))
-    
+
     return render_template('reset_password.html',token=token)
 
 
 @app.route("/login",methods=["GET","POST"])
 def login():
-   
+
    if request.method == "POST":
       # Get username and password from the login form
       username=request.form["username"]
@@ -408,7 +409,7 @@ def login():
          if found_user.is_removed:
                 flash("This account has been deactivated.", "danger")
                 return redirect(url_for('login'))
-         
+
           # Verify the password using hash check
          if check_password_hash(found_user.password,password):
              # Check if the user has verified their account
@@ -429,14 +430,14 @@ def login():
          # Username not found in the database
          flash("Users does not exist","danger")
          return redirect(url_for("login"))
-      
+
    return render_template("Login.html")
 
 @app.context_processor
 def inject_current_user():
     # Get username from session
     username = session.get('user')
-    
+
     # If user is logged in, get their full user object
     if username:
         current_user = Users.query.filter_by(username=username).first()
@@ -460,7 +461,7 @@ def delete_user(email):
        # Look up the user by email and then delete
       user = Users.query.filter_by(email=email).first()
       if user:
-         # Soft delete by setting is_removed 
+         # Soft delete by setting is_removed
         user.is_removed = True
         db.session.commit()
         flash("User account has been deactivated.", "success")
@@ -476,13 +477,13 @@ def create_tags():
     # Query existing tags that match any of the default names
     # and store their names in a set for fast lookup
     existing_tags={tag.name for tag in Tag.query.filter(Tag.name.in_(default_tags)).all()}
-    
+
     # Create a list of Tag objects for any default tags that are missing
     new_tags = [Tag(name=tag_name, is_default=True)
         for tag_name in default_tags
         if tag_name not in existing_tags
     ]
-    
+
     # If there are any new tags to add, save them to the database
     if new_tags:
         db.session.bulk_save_objects(new_tags) # Add all new tags efficiently
@@ -499,22 +500,22 @@ def create_post(item_id):
     username = session["user"]
     user = Users.query.filter_by(username=username).first()
     item = Item.query.get_or_404(item_id)  # This will automatically 404 if item doesn't exist
-    
+
     if not user:
         flash("User not found", category="danger")
         return redirect(url_for("login"))
-    
+
     # Limits the admin from writing a post
     if user.identity == "admin":
         flash('Admins are not allowed to create posts', category='danger')
         return redirect(url_for('view_item', item_id=item.id))
-    
+
     # Check if user is lecturer and item has lecturer tag
     lecturer_tag = Tag.query.filter_by(name="Lecturer").first()
     if user.identity == "lecturer" and lecturer_tag in item.tags:
         flash("Lecturers are not allowed to create posts on lecturer tagged items", category="danger")
         return redirect(url_for('view_item', item_id=item.id))
-    
+
     if request.method == "POST": # adds data into the database when submit
         text = request.form.get('text', '').strip() # removes extra spaces and gets text from user
         ratings = request.form.get('ratings') # stores rating data in the database
@@ -535,44 +536,44 @@ def create_post(item_id):
                 item_id=item.id
             )
             db.session.add(post)
-            
+
             try:
                 db.session.flush()  # Get the post ID
-                
+
                 # Handle file uploads
                 for file in upload_files:
                     if file.filename:  # Only process if file was actually uploaded
                         filename = secure_filename(file.filename)
                         file_ext = os.path.splitext(filename)[1].lower()
-                        
+
                         if file_ext in ['.jpg', '.jpeg', '.png']:
                             unique_filename = f"{uuid.uuid4().hex}_{filename}"
                             file_path = os.path.join(app.config['POST_IMAGE_FOLDER'], unique_filename)
-                            
+
                             file.save(file_path)
                             image = Image(filename=unique_filename, post_id=post.id)
                             db.session.add(image)
-                
+
                 db.session.commit()
                 flash('Post created!', category='success')
                 return redirect(url_for('view_item', item_id=item.id))
-            
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error creating post: {str(e)}", category='danger')
 
     # For GET requests or failed POSTs
     return render_template("create_post.html", item=item, text=request.form.get('text', ''))
-                
+
 @app.route("/delete-post/<int:id>", methods=['GET','POST'])
 def delete_post(id):
-    item_id = request.args.get('item_id', type=int) 
+    item_id = request.args.get('item_id', type=int)
     post = Post.query.get_or_404(id)  # This will automatically 404 if post doesn't exist
-    
+
     if session.get("user") != post.author:
         flash("You don't have permission to delete this post.", category="danger")
         return redirect(url_for('view_item', item_id=item_id or post.item_id))
-    
+
     try:
         # Marks post as removed
         post.ratings = 0
@@ -598,7 +599,7 @@ def delete_post(id):
     if referrer and '/profile/' in referrer:
         profile_username = referrer.split('/profile/')[-1].split('?')[0]
         return redirect(url_for('profile', username=profile_username))
-    
+
     return redirect(url_for('view_item', item_id=item_id or post.item_id))
 
 @app.route("/edit-post/<id>", methods=['GET', 'POST'])
@@ -609,7 +610,7 @@ def edit_post(id):
     if not post:
         flash("Post doesn't exist", category="danger")
         return redirect(url_for('home'))
-    
+
     if session.get("user") != post.author:
         flash("You don't have permission to edit this post.", category="danger")
         return redirect(url_for('home'))
@@ -619,7 +620,7 @@ def edit_post(id):
         ratings = request.form.get('ratings')
         upload_image=request.files.getlist("images")
         delete_images=request.form.getlist('delete_images')
-        
+
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
@@ -629,7 +630,7 @@ def edit_post(id):
             else:
                 post.text = text
                 post.ratings = int(ratings) if ratings else None
-                
+
         # Handle image uploads
         if upload_image:
             for file in upload_image:
@@ -654,7 +655,7 @@ def edit_post(id):
         if delete_images:
             for image_id in delete_images:
                 image = Image.query.get(image_id)
-                if image and image.post_id == post.id:  
+                if image and image.post_id == post.id:
                     # Delete file from filesystem
                     filepath = os.path.join(app.config['POST_IMAGE_FOLDER'], image.filename)
                     if os.path.exists(filepath):
@@ -675,12 +676,12 @@ def posts(username):
    if not user:
       flash("No user with that username exists", category="danger")
       return redirect(url_for("home"))
-   
+
    posts = Post.query.options(db.joinedload(Post.images), db.joinedload(Post.tags))\
         .filter_by(author=user.username)\
         .order_by(Post.date_posted.desc())\
         .all()
-   
+
    current_user=session.get("username")
 
    return render_template("posts.html", user=current_user, posts=posts, username=username)
@@ -696,12 +697,12 @@ def view_post(post_id, item_id):
 
     # Load the item associated with the post by ID or return a 404 page if not found
     item = Item.query.get_or_404(item_id)
-    
+
     # If no post was found with the given ID, show an error and redirect to home
     if not post:
         flash("Post not found", category="error")
         return redirect(url_for("home"))
-    
+
     # If everything is found, render the post and item details in the template
     return render_template("view_post.html", post=post,item=item)
 
@@ -727,7 +728,7 @@ def create_comment(post_id):
                 flash("Comment posted", category="success")
             else:
                 flash("Post doesn't exist", category="danger")
-   
+
     return redirect(url_for('view_item', item_id=post.item_id))
 
 @app.route("/delete-comment/<comment_id>")
@@ -739,13 +740,13 @@ def delete_comment(comment_id):
     if not comment:
         flash("Comment doesn't exist", category="danger")
         return redirect(url_for('view_item', item_id=item_id))  # Exit early if comment is missing
-    
+
     item_id = comment.post.item_id
 
     if session.get("user") != comment.author and session.get("user") != comment.post.author:
         flash("You don't have permission to delete this comment", category="danger")
         return redirect(url_for('view_item', item_id=item_id))
-    
+
     # soft deletes the comment
     comment.is_removed = True
 
@@ -754,11 +755,11 @@ def delete_comment(comment_id):
         reported_content_id=comment.id,
         content_type='comment'
     ).all()
-    
+
     # deletes reports associated with the comment
     for report in related_reports:
         db.session.delete(report)
-        
+
     flash("Comment removed", category="success")
     db.session.commit()
 
@@ -777,28 +778,28 @@ def edit_comment(comment_id):
    if not comment:
         flash("Post doesn't exist", category="danger")
         return redirect(url_for('home'))
-    
+
    if session.get("user") != comment.author:
         flash("You don't have permission to edit this post.", category="danger")
         return redirect(url_for('home'))
 
    post = comment.post
    item_id = post.item_id
-   
+
    if request.method == 'POST':
         text = request.form.get('text')
-        
+
         if not text:
             flash("Post cannot be empty", category='danger')
         else:
             if profanity_filter.contains_profanity(text):
                 flash("Your comment contains inappropriate language and cannot be posted", category="danger")
-            
+
             comment.text = text  # Update the post content
             db.session.commit()
             flash("Comment updated successfully", category='success')
             return redirect(url_for('view_item', item_id=item_id))
-    
+
    return render_template('edit_comment.html', comment=comment, post=post)
 
 # Pass Stuff To Navbar
@@ -820,7 +821,7 @@ def search():
 
     # Build query for items
     items_query = Item.query
-    
+
     # Apply search term filter
     if search_term:
         items_query = items_query.filter(
@@ -829,17 +830,17 @@ def search():
                 Item.description.ilike(f'%{search_term}%')
             )
         )
-    
+
     # Apply item name filter
     if item_filter:
         items_query = items_query.filter(Item.name.ilike(f'%{item_filter}%'))
 
     # Get the results
     items = items_query.order_by(Item.name).all()
-    
-    return render_template('search.html', 
-                        form=form, 
-                        searched=search_term, 
+
+    return render_template('search.html',
+                        form=form,
+                        searched=search_term,
                         items=items,
                         item_filter=item_filter)
 
@@ -852,10 +853,10 @@ def profile(username):
     if not profile_user:
         flash("User not found")
         return redirect(url_for("Login"))
-    
+
     # Get all posts by this user, ordered by newest first
     user_posts = Post.query.filter_by(author=username).order_by(Post.id.desc()).all()
-    
+
     # Build the URL for the user's profile image (stored in static folder)
     image_file = url_for('static', filename='profile/pics/' + profile_user.image_file)
 
@@ -948,16 +949,16 @@ def feedback(post_id, action):
     if "user" not in session:
         flash("Please login to provide feedback", "danger")
         return redirect(url_for('login'))
-    
+
     username = session["user"]  # Get username directly from session
     post = Post.query.get_or_404(post_id)
-    
-    # Check if user already gave feedback 
+
+    # Check if user already gave feedback
     existing_feedback = Feedback.query.filter_by(
         reviewer=username,
         post_id=post_id
     ).first()
-    
+
     if action == "helpful":
         if existing_feedback:
             if existing_feedback.is_helpful:
@@ -974,7 +975,7 @@ def feedback(post_id, action):
             post.helpful_count += 1
             feedback = Feedback(reviewer=username, post_id=post_id, is_helpful=True)
             db.session.add(feedback)
-    
+
     elif action == "not-helpful":
         if existing_feedback:
             if not existing_feedback.is_helpful:
@@ -991,7 +992,7 @@ def feedback(post_id, action):
             post.not_helpful_count += 1
             feedback = Feedback(author=username, post_id=post_id, is_helpful=False)
             db.session.add(feedback)
-    
+
     db.session.commit()
     return redirect(request.referrer or url_for('home'))
 
@@ -1001,13 +1002,13 @@ def add_item():
     if 'user' not in session:
         flash("Please login to add items", "danger")
         return redirect(url_for('login'))
-    
+
     # Get the logged-in user from database
     user = Users.query.filter_by(username=session['user']).first()
     if not user:
         flash("User not found", "danger")
         return redirect(url_for('login'))
-    
+
      # Ensure default tags exist (e.g., Lecturer, Facilities, Food)
     create_tags()
     default_tags = Tag.query.filter_by(is_default=True).all()
@@ -1018,36 +1019,36 @@ def add_item():
         custom_tags = request.form.get('custom_tags',' ').strip()
         description = request.form.get("description")
         review_pic = request.files.getlist('review_picture')
-        
+
         # Check if name,description are entered
         if not (name and description):
             flash("Please enter all required fields", "danger")
             return redirect(url_for('add_item'))
-        
+
         # Check for profanity in name and description
         if profanity_filter.contains_profanity(name) or profanity_filter.contains_profanity(description):
          flash("Item name or description contains inappropriate language.", "danger")
          return redirect(url_for('add_item'))
-        
+
         # Ensure at least one image was uploaded by checking if file name is empty
         if not review_pic or any(file.filename == '' for file in review_pic):
            flash("Please upload at least one image", "danger")
            return redirect(url_for('add_item'))
-        
-        # Check if an approved item with the same name already exists 
+
+        # Check if an approved item with the same name already exists
         existing_item = Item.query.filter(db.func.lower(Item.name) == name.lower(),Item.is_approved == True ).first()  # Only check against approved items
 
         if existing_item:
             flash("An item with this name already exists", "danger")
             return redirect(url_for('add_item'))
-        
+
         try:
             # Create new item, auto-approve if user is admin
             new_item = Item(
                 name=name,
                 description=description,
                 submitted_by=user.username,
-                is_approved=user.is_admin 
+                is_approved=user.is_admin
             )
             db.session.add(new_item)
             db.session.flush()  # Get the ID for the new item
@@ -1061,7 +1062,7 @@ def add_item():
             # Process custom tags
             if custom_tags:
                 for tag_name in [t.strip().lower() for t in custom_tags.split(',') if t.strip()]:
-                    # Check if tag exists 
+                    # Check if tag exists
                     tag = Tag.query.filter(db.func.lower(Tag.name) == tag_name).first()
 
                     if not tag:  # Create new tag if it doesn't exist
@@ -1071,20 +1072,20 @@ def add_item():
                     # Append tag to item's tags if not already added
                     if tag not in new_item.tags:
                         new_item.tags.append(tag)
-            
-            # Process images 
+
+            # Process images
             if review_pic:
                 for file in review_pic:
-                    # Secure filename and get extension   
+                    # Secure filename and get extension
                     filename = secure_filename(file.filename)
                     file_ext = os.path.splitext(filename)[1].lower()
-                    
+
                     # If image in right extension
                     if file_ext in ['.jpg', '.jpeg', '.png']:
                         # Generate unique filename
                         unique_filename = f"{uuid.uuid4().hex}{file_ext}"
                         file_path = os.path.join(app.config['ITEM_IMAGE_FOLDER'], unique_filename)
-                        
+
                         try:
                             # Save image to filesystem
                             file.save(file_path)
@@ -1099,70 +1100,67 @@ def add_item():
                             continue
             # Commit everything to database
             db.session.commit()
-            
+
             # Flash different message based on user role
             if user.is_admin:
                 flash("Item added successfully!", "success")
             else:
                 flash("Item submitted for admin approval", "success")
-            
+
             return redirect(url_for('home'))
-            
+
         except Exception as e:
             db.session.rollback()
             flash(f"An error occurred: {str(e)}", "error")
             return redirect(url_for('home'))
-    
+
     return render_template("add_item.html", default_tags=default_tags)
 
 @app.route("/viewitem/<int:item_id>", methods=["GET", "POST"])
 def view_item(item_id):
-    # Query the item by ID and ensure it is approved
-     # Also joinload the image,post,comment and replies for the item
     item = Item.query.options(
         db.joinedload(Item.images),
         db.joinedload(Item.posts).joinedload(Post.users),
         db.joinedload(Item.posts).joinedload(Post.comments).joinedload(Replies.users)
-    ).filter_by(id=item_id, is_approved=True).first_or_404() # 404 if item not found or not approved
-    
+    ).filter_by(id=item_id, is_approved=True).first_or_404()
+
     for post in item.posts:
         post.comments = Replies.query.filter_by(post_id=post.id).all()
 
-    # Retrieve currently logged-in user based on session user_id (if any)
     user = Users.query.get(session.get('user_id'))
     user_identity = user.identity if user else None
 
     # Calculate average rating and rating count
-    ratings = [post.ratings for post in item.posts if post.ratings is not None]
+    ratings = [post.ratings for post in item.posts if post.ratings is not None and not post.is_removed]
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
 
     # Get page number from request args, default to 1
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
-    
-     # Query all posts related to this item, order by most recent first, and paginate results
+
+    # Query all posts related to this item, order by most recent first, and paginate results
     posts_query = Post.query.filter_by(item_id=item.id)
     posts_pagination = posts_query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    
-    # Render the 'view_item.html' template with all necessary data:
-    return render_template('view_item.html',item=item,
+
+    return render_template('view_item.html',
+                         item=item,
                          user_identity=user_identity,
                          average_rating=average_rating,
                          rating_count=rating_count,
                          posts_pagination=posts_pagination)
-    
+
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):
     item=Item.query.get_or_404(item_id)  # Retrieve item or return 404 if not found
-    
+
     # Get all default tags (to ensure its exist)
     default_tags = Tag.query.filter_by(is_default=True).all()
 
     # Get tags already associated with this item
     item_tags = item.tags
     item_tag_ids = {tag.id for tag in item_tags}  # Using set for faster lookup
-    
+
     # Separate custom tags (non-default ones)
     custom_tags = [tag.name for tag in item_tags if not tag.is_default]
     custom_tags_str = ", ".join(custom_tags)  # To prefill form input
@@ -1170,7 +1168,7 @@ def edit_item(item_id):
     if not item:
         flash("Item not found")
         return redirect(url_for('add_item',item_id=item_id))
-    
+
     if request.method == "POST":
         # Get form data
         name = request.form.get("name")
@@ -1185,15 +1183,15 @@ def edit_item(item_id):
         # Handle custom tags
         custom_tags_input = request.form.get("custom_tags", "").strip()
         new_custom_tags = [t.strip() for t in custom_tags_input.split(",") if t.strip()] # seperate and store into an array
-        
+
         try:
             # Update basic fields
             item.name = name
             item.description = description
-            
+
             # Update default tags
             current_tag_ids = {tag.id for tag in item.tags}
-            
+
             # Tags to remove
             tags_to_remove = current_tag_ids - set(selected_tag_ids) # Find tags that are in current_tag but not in selected tag
             for tag_id in tags_to_remove:
@@ -1201,7 +1199,7 @@ def edit_item(item_id):
                 tag = Tag.query.get(tag_id)
                 if tag and tag.is_default:  # Only remove default tags
                     item.tags.remove(tag)
-            
+
             # Tags to add
             tags_to_add = set(selected_tag_ids) - current_tag_ids # Find tags that are in selected_tags
             for tag_id in tags_to_add:
@@ -1209,15 +1207,15 @@ def edit_item(item_id):
                 if tag:
                     # Append the tags
                     item.tags.append(tag)
-            
+
             # Handle custom tags
             existing_custom_tags = {tag.name.lower(): tag for tag in item.tags if not tag.is_default}
-            
+
             # Remove custom tags not in new updated list
             for tag_name, tag in existing_custom_tags.items():
                 if tag_name not in [t.lower() for t in new_custom_tags]:
                     item.tags.remove(tag)
-            
+
             # Add new custom tags
             for tag_name in new_custom_tags:
                 if tag_name.lower() not in existing_custom_tags:
@@ -1254,7 +1252,7 @@ def edit_item(item_id):
             if delete_image:
                for image_id in delete_image:
                 image = Item_Image.query.get(int(image_id))
-                if image and image.item_id == item.id:  
+                if image and image.item_id == item.id:
                     # Delete file from filesystem
                     filepath = os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename)
                     if os.path.exists(filepath):
@@ -1318,13 +1316,13 @@ def delete_item(item_id):
 
     return redirect(url_for('home'))
 
-@app.route('/reported/post/<int:post_id>', methods=['GET', 'POST'])
+@app.route('/reported/post/<int:post_id>', methods = ['GET', 'POST'])
 def report_post(post_id):
     if 'user' not in session:
         flash("Please login to report content", category="danger")
         return redirect(url_for('login'))
 
-    # Get the post to be reported
+    # To find the post
     post = Post.query.get_or_404(post_id)
 
     if request.method == 'POST':
@@ -1334,17 +1332,16 @@ def report_post(post_id):
         if not reason:
             flash("Please select a reason for reporting", category="danger")
         else:
-            # Check if user already reported this post
+            #Checks if user already reported this post
             existing_report = Report.query.filter_by(
-                reporter_id=session['user_id'],
-                reported_content_id=post_id,
-                content_type='post'
-            ).first()
+
+                reporter_id=session['user_id'], # Current logged in session
+                reported_content_id=post_id, # Get reported post id
+                content_type='post').first()
 
             if existing_report:
                 flash("You have already reported this post", category="info")
             else:
-                # Create new report
                 report = Report(
                     reporter_id=session['user_id'],
                     reported_content_id=post_id,
@@ -1358,7 +1355,6 @@ def report_post(post_id):
 
             return redirect(url_for('view_item', item_id=post.item_id))
 
-    # GET request
     return render_template('report_form.html', content=post, content_type="post")
 
 @app.route("/report/comment/<int:comment_id>", methods=["GET", "POST"])
@@ -1366,14 +1362,14 @@ def report_comment(comment_id):
     if 'user' not in session:
         flash("Please login to report content", category="danger")
         return redirect(url_for('login'))
-    
+
     comment = Replies.query.get_or_404(comment_id)
 
     if request.method == 'POST':
         reason = request.form.get('reason')
         details = request.form.get('details')
 
-        if not reason: 
+        if not reason:
             flash("Please select a reason for reporting", category="danger")
         else:
             #Checks if user already reported this post
@@ -1381,7 +1377,7 @@ def report_comment(comment_id):
                 reporter_id=session['user_id'],
                 reported_content_id=comment_id,
                 content_type='comment').first()
-            
+
             if existing_report:
                 flash("You have already reported this post", category="info")
             else:
@@ -1397,7 +1393,7 @@ def report_comment(comment_id):
                 flash("Your report has been submitted", category="success")
 
             return redirect(url_for('view_item', item_id=comment.post.item_id))
-    
+
     return render_template('report_form.html', content=comment, content_type="comment")
 
 @app.route('/admin')
@@ -1410,10 +1406,10 @@ def admin_dashboard():
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
-    # Display total users, reports, and posts
+
+    # Display total users, reports, and items
     total_users = Users.query.filter_by(is_removed=False).count()
-    total_posts = Post.query.count()
+    total_items = Item.query.filter_by(is_approved=True).count()
     total_reports = Report.query.count()
     pending_items_count = Item.query.filter_by(is_approved=False).count()
 
@@ -1421,9 +1417,9 @@ def admin_dashboard():
     recent_reports = Report.query.order_by(Report.id.desc()).limit(3).all()
     pending_items = Item.query.filter_by(is_approved=False).order_by(Item.id.asc()).limit(3).all()
 
-    return render_template('admin_dashboard.html', 
+    return render_template('admin_dashboard.html',
                          total_users=total_users,
-                         total_posts=total_posts,
+                         total_items=total_items,
                          total_reports=total_reports,
                          pending_items_count=pending_items_count,
                          recent_reports=recent_reports,
@@ -1439,7 +1435,7 @@ def admin_users():
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
+
     users = Users.query.order_by(Users.id.asc()).all()
     return render_template('admin_users.html', users=users)
 
@@ -1453,17 +1449,17 @@ def admin_reports():
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
+
     reports = Report.query.order_by(Report.id.asc()).all()
     return render_template('admin_reports.html', reports=reports)
-        
+
 def get_identity_from_email(email):
     if email.endswith('@student.mmu.edu.my'):
         return 'student'
     elif email.endswith('@mmu.edu.my'):
         return 'lecturer'
     elif email.endswith('@admin.mmu.edu.my'):
-        return 'staff' 
+        return 'staff'
 
 @app.route('/admin/toggle-admin/<int:user_id>')
 def toggle_admin(user_id):
@@ -1518,8 +1514,9 @@ def admin_delete_user(user_id):
 
     return redirect(url_for('admin_users'))
 
-@app.route('/admin/hide-content/<content_type>/<int:content_id>')
-def admin_hide_content(content_type, content_id):
+# For admin dashboard hide content and dismiss buttons
+@app.route('/admin/hide-content-dashboard/<content_type>/<int:content_id>')
+def admin_hide_content_dashboard(content_type, content_id):
     if 'user' not in session:
         flash("Please login to access admin panel", category="danger")
         return redirect(url_for('login'))
@@ -1528,7 +1525,7 @@ def admin_hide_content(content_type, content_id):
     if not current_user or not current_user.is_admin:
         flash("You don't have permission to access this page", category="danger")
         return redirect(url_for('home'))
-    
+
     # Soft delete posts
     if content_type == 'post':
         content = Post.query.get_or_404(content_id)
@@ -1541,7 +1538,7 @@ def admin_hide_content(content_type, content_id):
     else:
         flash("Invalid content type", category="danger")
         return redirect(url_for("admin_dashboard"))
-    
+
     db.session.commit()
 
     # Hard delete associated reports
@@ -1553,6 +1550,61 @@ def admin_hide_content(content_type, content_id):
 
     flash("Content has been marked as [deleted] and reports removed", category='success')
     return redirect(url_for("admin_dashboard"))
+
+@app.route('/admin/dismiss-report-dashboard/<int:report_id>')
+def admin_dismiss_report_dashboard(report_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+
+    report = Report.query.get_or_404(report_id)
+    db.session.delete(report)
+    db.session.commit()
+
+    flash("Report has been dismissed", "info")
+    return redirect(url_for('admin_dashboard'))
+
+#For admin_reports.html hide content and delete buttons
+@app.route('/admin/hide-content/<content_type>/<int:content_id>')
+def admin_hide_content(content_type, content_id):
+    if 'user' not in session:
+        flash("Please login to access admin panel", category="danger")
+        return redirect(url_for('login'))
+
+    current_user = Users.query.filter_by(username=session['user']).first()
+    if not current_user or not current_user.is_admin:
+        flash("You don't have permission to access this page", category="danger")
+        return redirect(url_for('home'))
+
+    # Soft delete posts
+    if content_type == 'post':
+        content = Post.query.get_or_404(content_id)
+        content.is_removed = True
+
+    elif content_type == 'comment':
+        content = Replies.query.get_or_404(content_id)
+        content.is_removed = True
+
+    else:
+        flash("Invalid content type", category="danger")
+        return redirect(url_for("admin_dashboard"))
+
+    db.session.commit()
+
+    # Hard delete associated reports
+    Report.query.filter_by(
+        content_type=content_type,
+        reported_content_id=content_id
+    ).delete()
+    db.session.commit()
+
+    flash("Content has been marked as [deleted] and reports removed", category='success')
+    return redirect(url_for('admin_reports'))
 
 @app.route('/admin/dismiss-report/<int:report_id>')
 def admin_dismiss_report(report_id):
@@ -1570,7 +1622,7 @@ def admin_dismiss_report(report_id):
     db.session.commit()
 
     flash("Report has been dismissed", "info")
-    return redirect(url_for('admin_reports'))  # or wherever you want to return
+    return redirect(url_for('admin_reports'))
 
 @app.route('/admin/pending-items')
 def pending_items():
@@ -1582,7 +1634,7 @@ def pending_items():
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", "danger")
         return redirect(url_for('home'))
-    
+
     pending_items = Item.query.filter_by(is_approved=False).all()
     return render_template('admin_pending_items.html', items=pending_items)
 
@@ -1596,11 +1648,11 @@ def approve_item(item_id):
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", "danger")
         return redirect(url_for('home'))
-    
+
     item = Item.query.get_or_404(item_id)
     item.is_approved = True
     db.session.commit()
-    
+
     flash("Item approved and published", "success")
     return redirect(url_for('admin_dashboard'))
 
@@ -1614,19 +1666,19 @@ def reject_item(item_id):
     if not user or not user.is_admin:
         flash("You don't have permission to access this page", "danger")
         return redirect(url_for('home'))
-    
+
     item = Item.query.get_or_404(item_id)
-    
+
     # Delete associated images first
     for image in item.images:
         try:
             os.remove(os.path.join(app.config['ITEM_IMAGE_FOLDER'], image.filename))
         except:
             pass
-    
+
     db.session.delete(item)
     db.session.commit()
-    
+
     flash("Item rejected and deleted", "success")
     return redirect(url_for('admin_dashboard'))
 
@@ -1639,7 +1691,8 @@ def check_account_status():
             flash("Your account has been deactivated or removed.", "danger")
             return redirect(url_for("login"))
 
-if __name__ == '__main__':  
+
+if __name__ == '__main__':
    with app.app_context():  # Needed for DB operations outside a request
-        db.create_all() 
+        db.create_all()
    app.run(debug=True)
