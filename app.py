@@ -22,7 +22,7 @@ app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/eryne/7-03/database.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
