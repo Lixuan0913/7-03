@@ -8,8 +8,8 @@
            <div class="content-section user-profile">
                <!-- Your existing profile content here -->
                <div class="media d-flex flex-column align-items-start">
-                   <img class="rounded img-thumbnail rounded-circle mb-3" 
-                        src="{{ image_file }}" 
+                   <img class="rounded img-thumbnail rounded-circle mb-3"
+                        src="{{ image_file }}"
                         style="height: 125px; width: 125px;">
                    <div class="text-left">
                        <h2 class="mb-4">Username: {{user.username}} ({{user.identity}})</h2>
@@ -28,24 +28,24 @@
 <!-- User's Posts Section -->
 <div class="col-md-8">
     <h3 class="mb-4">{{ user.username }}'s Posts</h3>
-    
+
     {% if posts %}
         {% for post in posts %}
                 <div class="card border-dark mb-7 post-separator">
                     <div class="card-header d-flex justify-content-between align-items-center bg-light">
                         <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-2" 
-                                src="{{ url_for('static', filename='profile/pics/' + (post.users.image_file if post.users else 'default.jpg')) }}"  
-                                alt="{{ post.author }}'s profile image" 
+                            <img class="rounded-circle me-2"
+                                src="{{ url_for('static', filename='profile/pics/' + (post.users.image_file if post.users else 'default.jpg')) }}"
+                                alt="{{ post.author }}'s profile image"
                                 style="height: 40px; width: 40px; object-fit: cover;">
                             <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold me-1">{{post.author}}</a>
                         </div>
-                        
+
                         <!-- Dropdown menu for post actions -->
                         <div class="dropdown">
-                            <button class="btn btn-sm p-0 border-0 bg-transparent" 
-                                    type="button" 
-                                    data-bs-toggle="dropdown" 
+                            <button class="btn btn-sm p-0 border-0 bg-transparent"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
                                     aria-expanded="false">
                                 <i class="fas fa-ellipsis-v text-muted"></i>
                             </button>
@@ -53,9 +53,10 @@
                                     <li><a href="/edit-post/{{post.id}}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a href="/delete-post/{{ post.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                </ul>
                         </div>
                     </div>
-                    
+
                     <!-- Post Body -->
                     <div class="card-body">
                         <!-- Star Rating Display (if applicable) -->
@@ -123,21 +124,21 @@
                             </span>
                             {% endif %}
                         </div>
-                        
+
                         <!-- Comments Collapse -->
                         <div class="collapse" id="comments-{{post.id}}">
                             {% for comment in post.comments %}
                                 <div class="comment-item mb-3">
                                     <div class="d-flex justify-content-between">
                                         <div class="d-flex align-items-start">
-                                            <img class="rounded-circle me-2" 
-                                                 src="{{ url_for('static', filename='profile/pics/' + (comment.users.image_file if comment.users else 'default.jpg')) }}" 
+                                            <img class="rounded-circle me-2"
+                                                 src="{{ url_for('static', filename='profile/pics/' + (comment.users.image_file if comment.users else 'default.jpg')) }}"
                                                  style="height: 30px; width: 30px; object-fit: cover;">
                                             <div>
                                                 <div>
                                                     {% if comment.users %}
                                                     <a href="/profile/{{comment.author}}" class="text-decoration-none fw-bold">{{comment.author}}</a>
-                                                    <span class="badge 
+                                                    <span class="badge
                                                         {% if comment.users.identity == 'student' %}bg-primary
                                                         {% elif comment.users.identity == 'lecturer' %}bg-success
                                                         {% elif comment.users.identity == 'admin' %}bg-danger
@@ -150,7 +151,7 @@
                                                 </div>
                                                 <div class="small">{{comment.text}}</div>
                                             </div>
-                                        </div>
+                                            </div>
                                         {% if session['user'] == comment.author or session['user'] == post.author %}
                                         <div class="dropdown">
                                             <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
@@ -166,7 +167,7 @@
                                 </div>
                             {% endfor %}
                         </div>
-                        
+
                         <!-- Comment Form -->
                         {% if 'user' in session %}
                         <form class="mt-3" method="POST" action="/create-comment/{{post.id}}">
@@ -180,11 +181,9 @@
                         {% endif %}
                     </div>
                 </div>
-
         {% endfor %}
     {% else %}
         <div class="alert alert-info">No posts yet.</div>
     {% endif %}
 </div>
-
 {% endblock %}
