@@ -240,10 +240,15 @@ def signup():
         
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
+
         if existing_email:
+          if existing_email.is_removed:
+            flash("This account has been removed and cannot be registered again", "danger")
+            return redirect(url_for("signup"))
+          else:
             flash("Email already registered", "danger")
             return redirect(url_for("signup"))
-      
+          
         try:
             # Create new user with hashed password
             user = Users(
