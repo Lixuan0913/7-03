@@ -31,7 +31,6 @@
     
     {% if posts %}
         {% for post in posts %}
-            {% if post.status != 'removed' %}
                 <div class="card border-dark mb-7 post-separator">
                     <div class="card-header d-flex justify-content-between align-items-center bg-light">
                         <div class="d-flex align-items-center">
@@ -60,7 +59,7 @@
                     <!-- Post Body -->
                     <div class="card-body">
                         <!-- Star Rating Display (if applicable) -->
-                        {% if post.ratings is not none %}
+                        {% if post.ratings is not none and not post.is_removed %}
                         <div class="mb-3">
                             <div class="d-flex align-items-center">
                                 <div class="star-rating-display me-2">
@@ -72,8 +71,15 @@
                         </div>
                         {% endif %}
 
+
                         <!-- Post Content -->
-                        <div class="card-text mb-3">{{ post.text }}</div>
+                        <div class="card-text mb-3">
+                            {% if post.is_removed %}
+                                <span class="text-muted fst-italic">[deleted]</span>
+                            {% elif post.text %}
+                                {{ post.text }}
+                            {% endif %}
+                        </div>
 
                         <!-- Date Posted -->
                         <p class="text-muted small mb-0">{{ post.date_posted.strftime('%b %d, %Y') }}</p>
@@ -174,7 +180,7 @@
                         {% endif %}
                     </div>
                 </div>
-            {% endif %}
+
         {% endfor %}
     {% else %}
         <div class="alert alert-info">No posts yet.</div>
