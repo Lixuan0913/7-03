@@ -155,10 +155,10 @@
                                             {% endif %}
                                         </div>
                                         <div class="small">
-                                            {% if comment.text %}
-                                                {{ comment.text }}
-                                            {% else %}
+                                            {% if comment.is_removed %}
                                                 <span class="text-muted fst-italic">[deleted]</span>
+                                            {% else %}
+                                                {{ comment.text }}
                                             {% endif %}
                                         </div>
                                     </div>
