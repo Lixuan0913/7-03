@@ -40,28 +40,6 @@
                                 style="height: 40px; width: 40px; object-fit: cover;">
                             <a href="/profile/{{post.author}}" class="text-decoration-none fw-bold me-1">{{post.author}}</a>
                         </div>
-
-                        {% if not post.is_removed %}
-                        <div class="dropdown">
-                            <button class="btn btn-sm p-0 border-0 bg-transparent"
-                                    type="button"
-                                    data-bs-toggle="dropdown"
-                                    aria-expanded="false">
-                                <i class="fas fa-ellipsis-v text-muted"></i>
-                            </button>
-                            {% if session['user'] == post.author %}
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a href="/edit-post/{{post.id}}?item_id={{ item.id }}" class="dropdown-item"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a href="/delete-post/{{ post.id }}?item_id={{ item.id }}" class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i>Delete </a></li>
-                                </ul>
-                            {% else %}
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a href="{{ url_for('report_post', post_id=post.id, item_id=item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report </a></li>
-                                </ul>
-                            {% endif %}
-                        </div>
-                        {% endif %}
                     </div>
 
                     <!-- Post Body -->
@@ -158,27 +136,7 @@
                                                 </div>
                                                 <div class="small">{{comment.text}}</div>
                                             </div>
-                                            </div>
-                                        {% if not comment.is_removed %}
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    {% if session['user'] == comment.author %}
-                                                        <!-- Only comment author can edit or delete -->
-                                                        <li><a href="/edit-comment/{{comment.id}}" class="dropdown-item small"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                                        <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
-                                                    {% elif session['user'] == post.author %}
-                                                        <!-- Post author can only delete -->
-                                                        <li><a href="/delete-comment/{{comment.id}}" class="dropdown-item text-danger small"><i class="fas fa-trash me-2"></i>Delete</a></li>
-                                                    {% else %}
-                                                        <!-- Other users can only report -->
-                                                        <li><a href="{{ url_for('report_comment', comment_id=comment.id, item_id= item.id) }}" class="dropdown-item text-danger"><i class="fas fa-regular fa-flag me-2"></i>Report</a></li>
-                                                    {% endif %}
-                                                </ul>
-                                            </div>
-                                        {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             {% endfor %}
