@@ -31,7 +31,7 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
-    password = db.Column(db.String(12), nullable=False)  
+    password = db.Column(db.String(100), nullable=False)  
     image_file=db.Column(db.String(100),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)# ensure student that are verified
@@ -232,12 +232,6 @@ def signup():
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
         
-        # Check if the username already exists
-        existing_user = Users.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists", "danger")
-            return redirect(url_for("signup"))
-        
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
 
@@ -247,6 +241,12 @@ def signup():
             return redirect(url_for("signup"))
           else:
             flash("Email already registered", "danger")
+            return redirect(url_for("signup"))
+        
+        # Check if the username already exists
+        existing_user = Users.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists", "danger")
             return redirect(url_for("signup"))
           
         try:
