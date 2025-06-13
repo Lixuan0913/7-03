@@ -243,12 +243,6 @@ def signup():
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
 
-        # Check if the username already exists
-        existing_user = Users.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists", "danger")
-            return redirect(url_for("signup"))
-
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
 
@@ -258,6 +252,12 @@ def signup():
             return redirect(url_for("signup"))
           else:
             flash("Email already registered", "danger")
+            return redirect(url_for("signup"))
+
+        # Check if the username already exists
+        existing_user = Users.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists", "danger")
             return redirect(url_for("signup"))
 
         try:
