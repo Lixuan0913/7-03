@@ -6,7 +6,7 @@
     <h1>Search Our Site</h1>
     <form class="d-flex" action="{{ url_for('search') }}" method="POST">
         {{ form.hidden_tag() }}
-        <input class="form-control me-2" type="search" name="searched" placeholder="Search posts...">
+        <input class="form-control me-2" type="search" name="searched" placeholder="Search items...">
         <button class="btn btn-outline-dark" type="submit">Search</button>
     </form>
 </div>
