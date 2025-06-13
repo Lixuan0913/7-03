@@ -14,8 +14,8 @@
     <div class="col-md-3">
         <div class="card text-white bg-success mb-3">
             <div class="card-body">
-                <h5 class="card-title">Total Posts</h5>
-                <p class="card-text display-4">{{ total_posts }}</p>
+                <h5 class="card-title">Total Items</h5>
+                <p class="card-text display-4">{{ total_items }}</p>
             </div>
         </div>
     </div>
@@ -66,7 +66,7 @@
                 <td>{{ item.submitted_by }}</td>
                 <td>
                     <div class="btn-group" role="group">
-                        <a href="{{ url_for('pending_items', item_id=item.id) }}" 
+                        <a href="{{ url_for('pending_items', item_id=item.id) }}"
                            class="btn btn-sm btn-info">View</a>
                     </div>
                 </td>
@@ -106,9 +106,9 @@
                     <td>{{ report.reason }}</td>
                     <td>
                         <div class="btn-group" role="group">
-                            <a href="{{ url_for('admin_hide_content', content_type=report.content_type, content_id=report.reported_content_id) }}" 
+                            <a href="{{ url_for('admin_hide_content_dashboard', content_type=report.content_type, content_id=report.reported_content_id) }}"
                             class="btn btn-sm btn-danger">Hide</a>
-                            <a href="{{ url_for('admin_dismiss_report', report_id=report.id) }}" 
+                            <a href="{{ url_for('admin_dismiss_report_dashboard', report_id=report.id) }}"
                             class="btn btn-sm btn-secondary">Dismiss</a>
                         </div>
                     </td>
@@ -122,7 +122,7 @@
     </div>
 {% else %}
     <div class="alert alert-info">
-        No pending items waiting for approval.
+        No pending reports to review.
     </div>
 {% endif %}
 {% endblock %}
