@@ -131,10 +131,16 @@
                                                         {{ comment.users.identity }}
                                                     </span>
                                                     {% else %}
-                                                    <span class="text-muted">Deleted User</span>
+                                                        <span class="text-muted">Deleted User</span>
                                                     {% endif %}
                                                 </div>
-                                                <div class="small">{{comment.text}}</div>
+                                                <div class="small">
+                                                    {% if comment.is_removed %}
+                                                        <span class="text-muted fst-italic">[deleted]</span>
+                                                    {% else %}
+                                                        {{ comment.text }}
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

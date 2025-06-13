@@ -23,7 +23,7 @@
                         {% endif %}
                     </div>
 
-                    {% if current_user.identity != 'admin' and not post.is_removed %}
+                    {% if 'user' in session and current_user.identity != 'admin' and not post.is_removed %}
                     <div class="dropdown">
                         <button class="btn btn-sm p-0 border-0 bg-transparent"
                                 type="button"
@@ -172,7 +172,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% if current_user.identity != 'admin' and not comment.is_removed %}
+                                        {% if 'user' in session and current_user.identity != 'admin' and not comment.is_removed %}
                                             <div class="dropdown">
                                                 <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
                                                     <i class="fas fa-ellipsis-v"></i>
