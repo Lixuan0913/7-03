@@ -581,7 +581,6 @@ def delete_post(id):
 
     try:
         # Marks post as removed
-        post.ratings = 0
         post.is_removed = True
 
         # Delete associated images
@@ -1139,7 +1138,7 @@ def view_item(item_id):
     ratings = [post.ratings for post in item.posts if post.ratings is not None and not post.is_removed]
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
-
+    
     # Get page number from request args, default to 1
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
