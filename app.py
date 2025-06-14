@@ -243,6 +243,12 @@ def signup():
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
 
+        # Check if the username already exists
+        existing_user = Users.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists", "danger")
+            return redirect(url_for("signup"))
+
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
 
@@ -252,12 +258,6 @@ def signup():
             return redirect(url_for("signup"))
           else:
             flash("Email already registered", "danger")
-            return redirect(url_for("signup"))
-
-        # Check if the username already exists
-        existing_user = Users.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists", "danger")
             return redirect(url_for("signup"))
 
         try:
@@ -581,6 +581,7 @@ def delete_post(id):
 
     try:
         # Marks post as removed
+        post.ratings = 0
         post.is_removed = True
 
         # Delete associated images
@@ -1138,7 +1139,7 @@ def view_item(item_id):
     ratings = [post.ratings for post in item.posts if post.ratings is not None and not post.is_removed]
     average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     rating_count = len(ratings)
-    
+
     # Get page number from request args, default to 1
     page = request.args.get('page', 1, type=int)
     per_page = 3  # Posts per page
