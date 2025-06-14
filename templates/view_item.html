@@ -85,7 +85,7 @@
                 <div class="col-md-8">
                     <div class="rating-distribution">
                         {% for i in range(5, 0, -1) %}
-                            {% set count = item.posts|selectattr('ratings', 'equalto', i)|list|count %}
+                            {% set count = item.posts| selectattr('is_removed', 'equalto', False)| selectattr('ratings', 'equalto', i)| list| count %}
                             <div class="d-flex align-items-center mb-2">
                                 <div class="text-nowrap me-2" style="width: 50px;">
                                     {{ i }} <i class="fas fa-star text-warning"></i>
@@ -96,7 +96,7 @@
                                          style="width: {{ (count / rating_count * 100) if rating_count > 0 else 0 }}%"
                                          aria-valuenow="{{ count }}"
                                          aria-valuemin="0"
-                                         aria-valuemax="{{ rating_count }}">
+                                         aria-valuemax="{{ rating_count }}"> 
                                     </div>
                                 </div>
                                 <div class="ms-2 text-muted" style="width: 30px;">
