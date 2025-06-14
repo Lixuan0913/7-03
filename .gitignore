@@ -64,7 +64,7 @@ coverage.xml
 Thumbs.db
 
 #Database
-database.sqlite3
+instance
 
 __pycache__
 

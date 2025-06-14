@@ -890,7 +890,17 @@ def update():
 
         # Update username if provided
         if new_username and new_username != current_user.username:
+            if Users.query.filter_by(username=new_username).first():
+                flash("Username already taken", "danger")
+                return redirect(url_for("update"))
+            
+            Post.query.filter_by(author=current_user.username).update({"author": new_username})
+            
+            # Update all comments by this user
+            Replies.query.filter_by(author=current_user.username).update({"author": new_username})
+
             current_user.username = new_username
+            session['user'] = new_username
 
         # Update password if provided and confirmed
         if new_password:
