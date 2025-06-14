@@ -31,7 +31,7 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(100), nullable=False,unique=True)
     email = db.Column("email",db.String(100), nullable=False)
-    password = db.Column(db.String(12), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
     image_file=db.Column(db.String(100),nullable=False,default='default.jpg')
     identity=db.Column(db.String(20),nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)# ensure student that are verified
