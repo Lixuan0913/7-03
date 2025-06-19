@@ -156,7 +156,7 @@
                                                 {% if comment.users.identity == 'student' %}bg-primary
                                                 {% elif comment.users.identity == 'lecturer' %}bg-success
                                                 {% elif comment.users.identity == 'admin' %}bg-danger
-                                                {% elif post.users.identity == 'staff' %}bg-info{% endif %}">
+                                                {% elif comment.users.identity == 'staff' %}bg-info{% endif %}">
                                                 {{ comment.users.identity }}
                                             </span>
                                             {% else %}

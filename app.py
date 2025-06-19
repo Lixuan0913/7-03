@@ -22,7 +22,7 @@ app.config['POST_IMAGE_FOLDER'] = POST_IMAGE_FOLDER
 app.config['ITEM_IMAGE_FOLDER'] = ITEM_IMAGE_FOLDER
 
 # Configure SQLite database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Avoids a warning
 
 db = SQLAlchemy(app)
@@ -243,12 +243,6 @@ def signup():
             flash("Passwords do not match", "danger")
             return redirect(url_for("signup"))
 
-        # Check if the username already exists
-        existing_user = Users.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists", "danger")
-            return redirect(url_for("signup"))
-
         # Check if the email is already registered
         existing_email = Users.query.filter_by(email=email.lower()).first()
 
@@ -258,6 +252,12 @@ def signup():
             return redirect(url_for("signup"))
           else:
             flash("Email already registered", "danger")
+            return redirect(url_for("signup"))
+
+        # Check if the username already exists
+        existing_user = Users.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists", "danger")
             return redirect(url_for("signup"))
 
         try:
@@ -581,8 +581,17 @@ def delete_post(id):
 
     try:
         # Marks post as removed
-        post.ratings = 0
         post.is_removed = True
+        post.ratings = 0
+
+        # Delete associated reports for this post
+        related_reports = Report.query.filter_by(
+            reported_content_id=post.id,
+            content_type='post'
+        ).all()
+
+        for report in related_reports:
+            db.session.delete(report)
 
         # Delete associated images
         for image in post.images:
@@ -890,7 +899,17 @@ def update():
 
         # Update username if provided
         if new_username and new_username != current_user.username:
+            if Users.query.filter_by(username=new_username).first():
+                flash("Username already taken", "danger")
+                return redirect(url_for("update"))
+
+            Post.query.filter_by(author=current_user.username).update({"author": new_username})
+
+            # Update all comments by this user
+            Replies.query.filter_by(author=current_user.username).update({"author": new_username})
+
             current_user.username = new_username
+            session['user'] = new_username
 
         # Update password if provided and confirmed
         if new_password:
@@ -995,7 +1014,7 @@ def feedback(post_id, action):
         else:
             # New not helpful vote
             post.not_helpful_count += 1
-            feedback = Feedback(author=username, post_id=post_id, is_helpful=False)
+            feedback = Feedback(reviewer=username, post_id=post_id, is_helpful=False)
             db.session.add(feedback)
 
     db.session.commit()
@@ -1154,6 +1173,7 @@ def view_item(item_id):
                          average_rating=average_rating,
                          rating_count=rating_count,
                          posts_pagination=posts_pagination)
+
 
 @app.route("/edititem/<int:item_id>",methods=["GET", "POST"])
 def edit_item(item_id):
